@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/build
+**/.expo
+**/.vscode
+server/generated
+mobile/backup-*
+*.log
+*.lock
+.turbo
+coverage
+**/*.min.js
+**/generated/prisma/

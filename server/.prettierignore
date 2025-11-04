@@ -1,0 +1,6 @@
+generated
+generated/**
+node_modules
+**/node_modules
+.expo
+.vscode
