@@ -1,0 +1,9 @@
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        name: Run Prettier
+        files: \.(js|jsx|ts|tsx|json|css|scss|html|md|yml|yaml)$
+        additional_dependencies: ['prettier@3.3.3']

@@ -140,7 +140,6 @@ npm install
 2. Configure environment
 
 - The repo root includes `.env.example` with shared variables. For local development you can create a `.env` file in the project root or configure environment variables in your shell. Important values:
-
   - API_URL — URL of the SlipWise server (e.g. http://10.0.0.2:4000 or http://localhost:4000 for emulator)
 
 Example (macOS / Linux):
