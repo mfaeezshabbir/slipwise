@@ -2,7 +2,8 @@
   "expo": {
     "name": "SlipWise",
     "slug": "slipwise",
-    "version": "1.0.0",
+    "version": "2.0.0",
+    "description": "SlipWise is a smart, AI-powered expense tracking mobile application.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "slipwise",
@@ -11,18 +12,21 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.slipwise.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.slipwise.app"
     },
     "web": {
       "bundler": "metro",

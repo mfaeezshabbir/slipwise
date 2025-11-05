@@ -2,49 +2,64 @@ import { View, Text } from '@/components/Themed';
 import { createExpense } from '@/services/expense';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  TextInput,
-  Pressable,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+import { StyleSheet, ScrollView, Alert, View as RNView } from 'react-native';
+import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
+import { TextInput } from '@/components/TextInput';
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { Header } from '@/components/Header';
+import { useColorScheme } from '@/components/useColorScheme';
+
+interface FormErrors {
+  title?: string;
+  amount?: string;
+  date?: string;
+}
 
 export default function AddExpenseScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const handleSubmit = async () => {
+  const validateForm = () => {
+    const newErrors: FormErrors = {};
+
     if (!title.trim()) {
-      Alert.alert('Validation', 'Title is required');
-      return;
+      newErrors.title = 'Title is required';
     }
 
     if (!amount.trim()) {
-      Alert.alert('Validation', 'Amount is required');
-      return;
+      newErrors.amount = 'Amount is required';
+    } else {
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        newErrors.amount = 'Amount must be a positive number';
+      }
     }
 
     if (!date.trim()) {
-      Alert.alert('Validation', 'Date is required');
-      return;
+      newErrors.date = 'Date is required';
     }
 
-    const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert('Validation', 'Amount must be a positive number');
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
       return;
     }
 
     try {
       setLoading(true);
-      setError(null);
+      const amountNum = parseFloat(amount);
 
       await createExpense({
         title: title.trim(),
@@ -53,11 +68,11 @@ export default function AddExpenseScreen() {
         note: note.trim() || undefined,
       });
 
+      // Success - navigate back
       router.replace('/');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to create expense';
       console.error('[AddExpense] Error:', err);
-      setError(msg);
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
@@ -69,168 +84,161 @@ export default function AddExpenseScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.heading}>Add New Expense</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Header
+        title="Add Expense"
+        subtitle="Create a new expense record"
+        showBackButton
+        onBackPress={handleCancel}
+      />
 
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      )}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Card shadowSize="small">
+          <View style={styles.formContainer}>
+            {/* Title Input */}
+            <TextInput
+              label="Title"
+              placeholder="e.g., Groceries, Gas, Coffee"
+              value={title}
+              onChangeText={(text) => {
+                setTitle(text);
+                if (errors.title) setErrors({ ...errors, title: undefined });
+              }}
+              error={errors.title}
+              editable={!loading}
+            />
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Title *</Text>
-        <TextInput
-          style={styles.input}
-          value={title}
-          onChangeText={setTitle}
-          placeholder="e.g., Groceries, Gas, Coffee"
-          editable={!loading}
-          placeholderTextColor="#9ca3af"
-        />
-      </View>
+            {/* Amount Input */}
+            <TextInput
+              label="Amount"
+              placeholder="0.00"
+              value={amount}
+              onChangeText={(text) => {
+                setAmount(text);
+                if (errors.amount) setErrors({ ...errors, amount: undefined });
+              }}
+              keyboardType="decimal-pad"
+              error={errors.amount}
+              editable={!loading}
+            />
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Amount *</Text>
-        <TextInput
-          style={styles.input}
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-          placeholder="12.50"
-          editable={!loading}
-          placeholderTextColor="#9ca3af"
-        />
-      </View>
+            {/* Date Input */}
+            <TextInput
+              label="Date"
+              placeholder={new Date().toISOString().split('T')[0]}
+              value={date}
+              onChangeText={(text) => {
+                setDate(text);
+                if (errors.date) setErrors({ ...errors, date: undefined });
+              }}
+              hint="Format: YYYY-MM-DD"
+              editable={!loading}
+            />
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Date *</Text>
-        <TextInput
-          style={styles.input}
-          value={date}
-          onChangeText={setDate}
-          placeholder="YYYY-MM-DD"
-          editable={!loading}
-          placeholderTextColor="#9ca3af"
-        />
-        <Text style={styles.hint}>Format: YYYY-MM-DD</Text>
-      </View>
+            {/* Note Input */}
+            <RNView style={styles.noteSection}>
+              <Text style={[styles.noteLabel, { color: colors.text }]}>Note (Optional)</Text>
+              <RNView
+                style={[
+                  styles.noteInputWrapper,
+                  {
+                    backgroundColor: colors.inputBackground,
+                    borderColor: colors.inputBorder,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.noteInputText,
+                    { color: note ? colors.text : colors.textTertiary },
+                  ]}
+                >
+                  {note || 'Add any additional notes...'}
+                </Text>
+              </RNView>
+            </RNView>
 
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Note (optional)</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={note}
-          onChangeText={setNote}
-          placeholder="Add any additional notes..."
-          multiline
-          numberOfLines={4}
-          editable={!loading}
-          placeholderTextColor="#9ca3af"
-        />
-      </View>
+            {/* Category Suggestion */}
+            {title && (
+              <Card variant="outlined">
+                <Text style={[styles.suggestionText, { color: colors.textSecondary }]}>
+                  💡 Tip: Include category keywords like "food", "transport", "shopping",
+                  "entertainment", "health", or "utilities" in your title or note for better
+                  organization.
+                </Text>
+              </Card>
+            )}
+          </View>
+        </Card>
+      </ScrollView>
 
-      <View style={styles.buttonGroup}>
-        <Pressable
-          style={[styles.button, styles.cancelButton]}
+      {/* Action Buttons */}
+      <View style={[styles.buttonContainer, { backgroundColor: colors.background }]}>
+        <Button
+          variant="outline"
+          size="md"
           onPress={handleCancel}
           disabled={loading}
+          fullWidth
+          style={{ marginRight: spacing.md }}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color="#374151" />
-          ) : (
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          )}
-        </Pressable>
-        <Pressable
-          style={[styles.button, styles.submitButton]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>Save Expense</Text>
-          )}
-        </Pressable>
+          Cancel
+        </Button>
+        <Button size="md" onPress={handleSubmit} disabled={loading} loading={loading} fullWidth>
+          Save Expense
+        </Button>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    padding: 16,
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  errorContainer: {
-    backgroundColor: '#fee2e2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#dc2626',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#991b1b',
-    fontWeight: '500',
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#0f172a',
-  },
-  hint: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#0f172a',
-  },
-  textArea: {
-    textAlignVertical: 'top',
-    paddingTop: 12,
-    minHeight: 100,
-  },
-  buttonGroup: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  button: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  cancelButton: {
-    backgroundColor: '#e5e7eb',
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+    paddingBottom: spacing.huge,
   },
-  cancelButtonText: {
-    color: '#374151',
-    fontWeight: '600',
+  formContainer: {
+    gap: spacing.md,
   },
-  submitButton: {
-    backgroundColor: '#2A3A69',
+  noteSection: {
+    marginBottom: spacing.lg,
   },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  noteLabel: {
+    ...typography.labelLarge,
+    marginBottom: spacing.sm,
+  },
+  noteInputWrapper: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    minHeight: 100,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  noteScroll: {
+    flex: 1,
+  },
+  noteInput: {
+    flex: 1,
+  },
+  noteInputText: {
+    ...typography.bodyMedium,
+  },
+  suggestionText: {
+    ...typography.bodySmall,
+    fontStyle: 'italic',
+  },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
   },
 });

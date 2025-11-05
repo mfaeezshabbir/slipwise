@@ -2,24 +2,31 @@ import { View, Text } from '@/components/Themed';
 import { getExpenseById, deleteExpense, updateExpense, type Expense } from '@/services/expense';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import {
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Alert,
-  ActivityIndicator,
-  TextInput,
-} from 'react-native';
-import Colors from '@/constants/Colors';
+import { StyleSheet, ScrollView, Alert, ActivityIndicator, View as RNView } from 'react-native';
+import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
+import { Header } from '@/components/Header';
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { TextInput } from '@/components/TextInput';
+import { CategoryIcon } from '@/components/Icons';
+import { useColorScheme } from '@/components/useColorScheme';
+
+interface FormErrors {
+  title?: string;
+  amount?: string;
+  date?: string;
+}
 
 export default function ExpenseDetailScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const { id } = useLocalSearchParams<{ id: string }>();
   const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
 
   const [editTitle, setEditTitle] = useState('');
   const [editAmount, setEditAmount] = useState('');
@@ -34,7 +41,6 @@ export default function ExpenseDetailScreen() {
     if (!id) return;
     try {
       setLoading(true);
-      setError(null);
       const data = await getExpenseById(id as string);
       setExpense(data);
       setEditTitle(data.title);
@@ -43,7 +49,6 @@ export default function ExpenseDetailScreen() {
       setEditNote(data.note || '');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load expense';
-      setError(msg);
       Alert.alert('Error', msg);
       setTimeout(() => router.back(), 2000);
     } finally {
@@ -72,27 +77,39 @@ export default function ExpenseDetailScreen() {
     ]);
   };
 
-  const handleSave = async () => {
+  const validateForm = () => {
+    const newErrors: FormErrors = {};
+
     if (!editTitle.trim()) {
-      Alert.alert('Validation', 'Title is required');
-      return;
+      newErrors.title = 'Title is required';
     }
 
-    const amountNum = parseFloat(editAmount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      Alert.alert('Validation', 'Amount must be a positive number');
-      return;
+    if (!editAmount.trim()) {
+      newErrors.amount = 'Amount is required';
+    } else {
+      const amountNum = parseFloat(editAmount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        newErrors.amount = 'Amount must be a positive number';
+      }
     }
 
     if (!editDate.trim()) {
-      Alert.alert('Validation', 'Date is required');
+      newErrors.date = 'Date is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSave = async () => {
+    if (!validateForm()) {
       return;
     }
 
     try {
       setSaving(true);
-      setError(null);
       if (!id) return;
+      const amountNum = parseFloat(editAmount);
       await updateExpense(id as string, {
         title: editTitle.trim(),
         amount: amountNum,
@@ -104,7 +121,6 @@ export default function ExpenseDetailScreen() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to update expense';
       console.error('[ExpenseDetail] Update error:', err);
-      setError(msg);
       Alert.alert('Error', msg);
     } finally {
       setSaving(false);
@@ -113,304 +129,339 @@ export default function ExpenseDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.light.brandPrimary} />
-        <Text style={styles.loadingText}>Loading expense...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Loading expense...
+        </Text>
       </View>
     );
   }
 
   if (!expense) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorTitle}>Expense not found</Text>
-        {error && <Text style={styles.errorText}>{error}</Text>}
-        <Pressable style={styles.button} onPress={() => router.back()}>
-          <Text style={styles.buttonText}>Go Back</Text>
-        </Pressable>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Header title="Not Found" showBackButton onBackPress={() => router.back()} />
+        <View style={styles.centerContent}>
+          <Text style={[styles.errorTitle, { color: colors.danger }]}>Expense not found</Text>
+          <Button onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
+            Go Back
+          </Button>
+        </View>
       </View>
     );
   }
 
   if (editing) {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.heading}>Edit Expense</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Header title="Edit Expense" showBackButton onBackPress={() => setEditing(false)} />
 
-        {error && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Card shadowSize="small">
+            <View style={styles.formContainer}>
+              <TextInput
+                label="Title"
+                value={editTitle}
+                onChangeText={(text) => {
+                  setEditTitle(text);
+                  if (errors.title) setErrors({ ...errors, title: undefined });
+                }}
+                error={errors.title}
+                editable={!saving}
+              />
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Title *</Text>
-          <TextInput
-            style={styles.input}
-            value={editTitle}
-            onChangeText={setEditTitle}
-            editable={!saving}
-            placeholderTextColor="#9ca3af"
-          />
-        </View>
+              <TextInput
+                label="Amount"
+                value={editAmount}
+                onChangeText={(text) => {
+                  setEditAmount(text);
+                  if (errors.amount) setErrors({ ...errors, amount: undefined });
+                }}
+                keyboardType="decimal-pad"
+                error={errors.amount}
+                editable={!saving}
+              />
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Amount *</Text>
-          <TextInput
-            style={styles.input}
-            value={editAmount}
-            onChangeText={setEditAmount}
-            keyboardType="decimal-pad"
-            editable={!saving}
-            placeholderTextColor="#9ca3af"
-          />
-        </View>
+              <TextInput
+                label="Date"
+                value={editDate}
+                onChangeText={(text) => {
+                  setEditDate(text);
+                  if (errors.date) setErrors({ ...errors, date: undefined });
+                }}
+                hint="Format: YYYY-MM-DD"
+                editable={!saving}
+              />
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Date *</Text>
-          <TextInput
-            style={styles.input}
-            value={editDate}
-            onChangeText={setEditDate}
-            placeholder="YYYY-MM-DD"
-            editable={!saving}
-            placeholderTextColor="#9ca3af"
-          />
-        </View>
+              <RNView style={styles.noteSection}>
+                <Text style={[styles.noteLabel, { color: colors.text }]}>Note</Text>
+                <RNView
+                  style={[
+                    styles.noteInputWrapper,
+                    {
+                      backgroundColor: colors.inputBackground,
+                      borderColor: colors.inputBorder,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.noteInputText,
+                      { color: editNote ? colors.text : colors.textTertiary },
+                    ]}
+                  >
+                    {editNote || 'Add notes...'}
+                  </Text>
+                </RNView>
+              </RNView>
+            </View>
+          </Card>
+        </ScrollView>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Note (optional)</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            value={editNote}
-            onChangeText={setEditNote}
-            multiline
-            numberOfLines={4}
-            editable={!saving}
-            placeholderTextColor="#9ca3af"
-          />
-        </View>
-
-        <View style={styles.buttonGroup}>
-          <Pressable
-            style={[styles.button, styles.cancelButton]}
+        <View style={[styles.buttonContainer, { backgroundColor: colors.background }]}>
+          <Button
+            variant="outline"
+            size="md"
             onPress={() => setEditing(false)}
             disabled={saving}
+            fullWidth
+            style={{ marginRight: spacing.md }}
           >
-            {saving ? (
-              <ActivityIndicator size="small" color="#374151" />
-            ) : (
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            )}
-          </Pressable>
-          <Pressable
-            style={[styles.button, styles.submitButton]}
-            onPress={handleSave}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Save</Text>
-            )}
-          </Pressable>
+            Cancel
+          </Button>
+          <Button size="md" onPress={handleSave} disabled={saving} loading={saving} fullWidth>
+            Save Changes
+          </Button>
         </View>
-      </ScrollView>
+      </View>
     );
   }
 
+  const getCategoryColor = (note?: string) => {
+    const categoryKeywords: Record<string, string> = {
+      food: '#F97316',
+      transport: '#3B82F6',
+      entertainment: '#EC4899',
+      health: '#10B981',
+      shopping: '#6366F1',
+      utilities: '#F59E0B',
+    };
+
+    if (!note) return '#6B7280';
+    const lowerNote = note.toLowerCase();
+    for (const [key, color] of Object.entries(categoryKeywords)) {
+      if (lowerNote.includes(key)) return color;
+    }
+    return '#6B7280';
+  };
+
+  const categoryColor = getCategoryColor(expense.note);
+  const category = expense.note?.split(/[,\s]/)[0] || 'Other';
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.amount}>${Number(expense.amount).toFixed(2)}</Text>
-        <Text style={styles.title}>{expense.title}</Text>
-        <Text style={styles.meta}>{new Date(expense.date).toLocaleDateString()}</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Header title="Expense Details" showBackButton onBackPress={() => router.back()} />
 
-        {expense.note && (
-          <View style={styles.noteSection}>
-            <Text style={styles.noteLabel}>Note</Text>
-            <Text style={styles.noteText}>{expense.note}</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Amount Card */}
+        <Card shadowSize="large" variant="elevated">
+          <View style={styles.amountCard}>
+            <View style={[styles.amountIconContainer, { backgroundColor: categoryColor + '20' }]}>
+              <CategoryIcon category={category} size={48} color={categoryColor} />
+            </View>
+            <View style={styles.amountTextContainer}>
+              <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>Amount</Text>
+              <Text style={[styles.amount, { color: colors.danger }]}>
+                ${Number(expense.amount).toFixed(2)}
+              </Text>
+            </View>
           </View>
-        )}
+        </Card>
 
-        {expense.createdAt && (
-          <Text style={styles.timestamp}>
-            Created: {new Date(expense.createdAt).toLocaleString()}
-          </Text>
-        )}
+        {/* Details Card */}
+        <Card>
+          <View style={styles.detailsContainer}>
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Title</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>{expense.title}</Text>
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Date</Text>
+              <Text style={[styles.detailValue, { color: colors.text }]}>
+                {new Date(expense.date).toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </Text>
+            </View>
+
+            {expense.note && (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.detailRow}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
+                    Category
+                  </Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{category}</Text>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.detailRow}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Notes</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>{expense.note}</Text>
+                </View>
+              </>
+            )}
+
+            {expense.createdAt && (
+              <>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <View style={styles.detailRow}>
+                  <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Created</Text>
+                  <Text style={[styles.detailValue, { color: colors.text }]}>
+                    {new Date(expense.createdAt).toLocaleString()}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        </Card>
+      </ScrollView>
+
+      {/* Action Buttons */}
+      <View style={[styles.actionContainer, { backgroundColor: colors.background }]}>
+        <Button
+          variant="outline"
+          size="md"
+          onPress={() => setEditing(true)}
+          fullWidth
+          style={{ marginRight: spacing.md }}
+        >
+          Edit
+        </Button>
+        <Button variant="danger" size="md" onPress={handleDelete} fullWidth>
+          Delete
+        </Button>
       </View>
-
-      <View style={styles.actionGroup}>
-        <Pressable style={[styles.button, styles.editButton]} onPress={() => setEditing(true)}>
-          <Text style={styles.buttonText}>Edit</Text>
-        </Pressable>
-        <Pressable style={[styles.button, styles.deleteButton]} onPress={handleDelete}>
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </Pressable>
-      </View>
-
-      <Pressable style={styles.backButton} onPress={() => router.back()}>
-        <Text style={styles.backButtonText}>← Back</Text>
-      </Pressable>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    padding: 16,
+    flex: 1,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+    paddingBottom: spacing.huge,
+  },
   loadingText: {
-    marginTop: 12,
-    color: Colors.light.brandPrimary,
+    ...typography.bodyMedium,
     fontWeight: '600',
-  },
-  heading: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  card: {
-    backgroundColor: '#f8fafc',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  amount: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.light.brandPrimary,
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 8,
-  },
-  meta: {
-    fontSize: 14,
-    color: '#6b7280',
-  },
-  noteSection: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-  noteLabel: {
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  noteText: {
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#9ca3af',
-    marginTop: 16,
-    fontStyle: 'italic',
+    marginTop: spacing.lg,
   },
   errorTitle: {
-    color: '#dc2626',
-    fontSize: 18,
-    fontWeight: '600',
+    ...typography.h4,
     textAlign: 'center',
-    marginBottom: 16,
   },
-  errorContainer: {
-    backgroundColor: '#fee2e2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#dc2626',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#991b1b',
-    fontWeight: '500',
-  },
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#0f172a',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    padding: 12,
-    borderRadius: 8,
-    fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#0f172a',
-  },
-  textArea: {
-    textAlignVertical: 'top',
-    paddingTop: 12,
-    minHeight: 100,
-  },
-  buttonGroup: {
+  amountCard: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  actionGroup: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  button: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
     alignItems: 'center',
+  },
+  amountIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.xl,
     justifyContent: 'center',
-  },
-  editButton: {
-    backgroundColor: Colors.light.brandPrimary,
-  },
-  deleteButton: {
-    backgroundColor: '#fee2e2',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  cancelButton: {
-    backgroundColor: '#e5e7eb',
-  },
-  cancelButtonText: {
-    color: '#374151',
-    fontWeight: '600',
-  },
-  submitButton: {
-    backgroundColor: Colors.light.brandPrimary,
-  },
-  submitButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  deleteButtonText: {
-    color: '#dc2626',
-    fontWeight: '600',
-  },
-  backButton: {
-    paddingVertical: 12,
     alignItems: 'center',
+    marginRight: spacing.lg,
   },
-  backButtonText: {
-    color: Colors.light.brandPrimary,
-    fontWeight: '600',
+  amountTextContainer: {
+    flex: 1,
+  },
+  amountLabel: {
+    ...typography.bodySmall,
+    marginBottom: spacing.xs,
+  },
+  amount: {
+    ...typography.h2,
+    fontWeight: '700',
+  },
+  detailsContainer: {
+    gap: spacing.md,
+  },
+  detailRow: {
+    paddingVertical: spacing.md,
+  },
+  detailLabel: {
+    ...typography.labelMedium,
+    marginBottom: spacing.xs,
+  },
+  detailValue: {
+    ...typography.bodyMedium,
+  },
+  divider: {
+    height: 1,
+  },
+  formContainer: {
+    gap: spacing.md,
+  },
+  noteSection: {
+    marginBottom: spacing.lg,
+  },
+  noteLabel: {
+    ...typography.labelLarge,
+    marginBottom: spacing.sm,
+  },
+  noteInputWrapper: {
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    minHeight: 100,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  noteInputText: {
+    ...typography.bodyMedium,
+  },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
+  },
+  actionContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
   },
 });

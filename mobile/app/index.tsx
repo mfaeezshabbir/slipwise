@@ -1,13 +1,28 @@
 import ExpenseItem from '@/components/ExpenseItem';
 import { Text, View } from '@/components/Themed';
 import { getAllExpenses, type Expense } from '@/services/expense';
-import Colors from '@/constants/Colors';
+import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+  View as RNView,
+} from 'react-native';
+import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
+import { AppLogo } from '@/components/Logo';
+import { FAB } from '@/components/FAB';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { useColorScheme } from '@/components/useColorScheme';
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,51 +57,117 @@ export default function DashboardScreen() {
   }, [loadExpenses]);
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const averageExpense = expenses.length > 0 ? total / expenses.length : 0;
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.light.brandPrimary} />
-        <Text style={styles.loadingText}>Loading expenses...</Text>
+      <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
+        <AppLogo size={64} />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.lg }} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          Loading expenses...
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>SlipWise — Expenses</Text>
-
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryLabel}>Total</Text>
-        <Text style={styles.summaryAmount}>${total.toFixed(2)}</Text>
-        <Text style={styles.summaryMeta}>{expenses.length} items</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header with Logo and Theme Toggle */}
+      <View style={styles.headerSection}>
+        <View style={styles.headerContent}>
+          <View style={styles.logoSection}>
+            <AppLogo size={40} />
+            <View>
+              <Text style={[styles.appName, { color: colors.text }]}>SlipWise</Text>
+              <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
+                Track & Manage
+              </Text>
+            </View>
+          </View>
+          <View style={styles.headerActions}>
+            <ThemeToggle />
+          </View>
+        </View>
       </View>
 
-      {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>⚠️ {error}</Text>
-          <Pressable onPress={loadExpenses} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </Pressable>
+      {/* Summary Stats */}
+      <Card shadowSize="medium" variant="elevated">
+        <View style={styles.summaryGrid}>
+          <View style={styles.statBlock}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>${total.toFixed(2)}</Text>
+          </View>
+
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.statBlock}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Items</Text>
+            <Text style={[styles.statValue, { color: colors.success }]}>{expenses.length}</Text>
+          </View>
+
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.statBlock}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Average</Text>
+            <Text style={[styles.statValue, { color: colors.secondary }]}>
+              ${averageExpense.toFixed(2)}
+            </Text>
+          </View>
         </View>
+      </Card>
+
+      {/* Error Message */}
+      {error && (
+        <Card shadowSize="small" variant="outlined">
+          <View style={styles.errorContent}>
+            <Text style={[styles.errorText, { color: colors.danger }]}>⚠️ {error}</Text>
+            <Button
+              size="sm"
+              variant="outline"
+              onPress={loadExpenses}
+              style={{ marginTop: spacing.md }}
+            >
+              Retry
+            </Button>
+          </View>
+        </Card>
       )}
 
-      <FlatList
-        data={expenses}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, !expenses.length && styles.emptyList]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          !error ? (
-            <Text style={styles.empty}>No expenses yet. Create one to get started!</Text>
-          ) : null
-        }
-        renderItem={({ item }) => <ExpenseItem expense={item} />}
-      />
+      {/* Expenses List */}
+      <View style={styles.listSection}>
+        <Text style={[styles.listTitle, { color: colors.text }]}>Recent Expenses</Text>
+        <FlatList
+          scrollEnabled={false}
+          data={expenses}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[!expenses.length && styles.emptyList]}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          ListEmptyComponent={
+            !error ? (
+              <View style={styles.emptyStateContainer}>
+                <View
+                  style={[styles.emptyStateIcon, { backgroundColor: colors.backgroundSecondary }]}
+                >
+                  <AppLogo size={48} />
+                </View>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                  No expenses yet
+                </Text>
+                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                  Create your first expense to get started
+                </Text>
+              </View>
+            ) : null
+          }
+          renderItem={({ item }) => <ExpenseItem expense={item} />}
+        />
+      </View>
 
-      <Pressable style={styles.addButton} onPress={() => router.push('/add' as any)}>
-        <Text style={styles.addButtonText}>+ Add Expense</Text>
-      </Pressable>
+      {/* Floating Action Button */}
+      <View style={styles.fabContainer}>
+        <FAB onPress={() => router.push('/add' as any)} label="+ Add Expense" size="large" />
+      </View>
     </View>
   );
 }
@@ -94,7 +175,8 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.huge + spacing.xl,
   },
   centerContainer: {
     flex: 1,
@@ -102,71 +184,106 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    color: Colors.light.brandPrimary,
-    fontWeight: '600',
+    marginTop: spacing.lg,
+    ...typography.bodyMedium,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
+  headerSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  summaryCard: {
-    backgroundColor: Colors.light.brandPrimary,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  summaryLabel: { color: '#dbeafe', fontSize: 12 },
-  summaryAmount: { color: '#fff', fontSize: 24, fontWeight: '800', marginTop: 6 },
-  summaryMeta: { color: '#e0f2f1', marginTop: 4 },
-  errorContainer: {
-    backgroundColor: '#fee2e2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#dc2626',
-    padding: 12,
-    borderRadius: 6,
-    marginBottom: 12,
+  logoSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  appName: {
+    ...typography.h3,
+    marginLeft: spacing.md,
+    fontWeight: '700',
+  },
+  appTagline: {
+    ...typography.bodySmall,
+    marginLeft: spacing.md,
+    marginTop: spacing.xs,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statBlock: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    marginHorizontal: spacing.md,
+  },
+  statLabel: {
+    ...typography.labelSmall,
+    marginBottom: spacing.xs,
+  },
+  statValue: {
+    ...typography.h5,
+    fontWeight: '700',
+  },
+  errorContent: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   errorText: {
-    color: '#991b1b',
+    ...typography.bodyMedium,
     fontWeight: '500',
-    marginBottom: 8,
   },
-  retryButton: {
-    backgroundColor: '#dc2626',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 4,
-    alignItems: 'center',
+  listSection: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
-  retryButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 12,
-  },
-  list: {
-    flexGrow: 1,
+  listTitle: {
+    ...typography.h5,
+    fontWeight: '700',
+    marginBottom: spacing.lg,
   },
   emptyList: {
+    flexGrow: 1,
+  },
+  emptyStateContainer: {
+    flex: 1,
     justifyContent: 'center',
-  },
-  empty: {
-    color: '#6b7280',
-    padding: 12,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-  addButton: {
-    backgroundColor: '#2A3A69',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
     alignItems: 'center',
-    marginTop: 12,
+    paddingVertical: spacing.huge,
   },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  emptyStateIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.xl,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyText: {
+    ...typography.h6,
+    marginBottom: spacing.sm,
+  },
+  emptySubtext: {
+    ...typography.bodySmall,
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: spacing.lg,
+    left: spacing.lg,
+    right: spacing.lg,
+    backgroundColor: 'transparent',
   },
 });

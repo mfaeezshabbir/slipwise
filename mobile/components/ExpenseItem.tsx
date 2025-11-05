@@ -3,58 +3,128 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { StyleSheet, Pressable } from 'react-native';
 import { Text, View } from './Themed';
+import { Card } from './Card';
+import { CategoryIcon } from './Icons';
+import { useColorScheme } from './useColorScheme';
+import Colors, { spacing, typography } from '@/constants/Colors';
 
 export default function ExpenseItem({ expense }: { expense: Expense }) {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
   const handlePress = () => {
     router.push(`/${expense.id}` as any);
   };
 
+  // Determine category color based on category
+  const getCategoryColor = (note?: string) => {
+    const categoryKeywords: Record<string, string> = {
+      food: '#F97316',
+      transport: '#3B82F6',
+      entertainment: '#EC4899',
+      health: '#10B981',
+      shopping: '#6366F1',
+      utilities: '#F59E0B',
+    };
+
+    if (!note) return '#6B7280';
+
+    const lowerNote = note.toLowerCase();
+    for (const [key, color] of Object.entries(categoryKeywords)) {
+      if (lowerNote.includes(key)) return color;
+    }
+    return '#6B7280';
+  };
+
+  const categoryColor = getCategoryColor(expense.note);
+  const category = expense.note?.split(/[,\s]/)[0] || 'Other';
+
+  const formattedDate = new Date(expense.date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  });
+
+  const dayOfWeek = new Date(expense.date).toLocaleDateString('en-US', {
+    weekday: 'short',
+  });
+
   return (
-    <Pressable onPress={handlePress}>
-      <View style={styles.container}>
-        <View style={styles.row}>
-          <Text style={styles.title}>{expense.title}</Text>
-          <Text style={styles.amount}>${Number(expense.amount).toFixed(2)}</Text>
+    <Pressable onPress={handlePress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
+      <Card shadowSize="small">
+        <View style={styles.content}>
+          {/* Left section: Icon and category */}
+          <View style={styles.leftSection}>
+            <View style={[styles.iconContainer, { backgroundColor: categoryColor + '20' }]}>
+              <CategoryIcon category={category} size={24} color={categoryColor} />
+            </View>
+            <View style={styles.categoryInfo}>
+              <Text style={[styles.category, { color: colors.text }]}>{expense.title}</Text>
+              <Text style={[styles.date, { color: colors.textSecondary }]}>
+                {dayOfWeek}, {formattedDate}
+              </Text>
+            </View>
+          </View>
+
+          {/* Right section: Amount */}
+          <View style={styles.rightSection}>
+            <Text style={[styles.amount, { color: colors.danger }]}>
+              ${Number(expense.amount).toFixed(2)}
+            </Text>
+          </View>
         </View>
-        <View style={styles.row}>
-          <Text style={styles.meta}>{new Date(expense.date).toLocaleDateString()}</Text>
-          {expense.note && <Text style={styles.note}>{expense.note}</Text>}
-        </View>
-      </View>
+
+        {/* Note section */}
+        {expense.note && (
+          <Text style={[styles.note, { color: colors.textTertiary }]} numberOfLines={1}>
+            {expense.note}
+          </Text>
+        )}
+      </Card>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#f8fafc',
-    marginBottom: 10,
-  },
-  row: {
+  content: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  title: {
-    fontWeight: '600',
-    color: '#0f172a',
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     flex: 1,
   },
-  amount: {
-    fontWeight: '700',
-    color: '#2A3A69',
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
   },
-  meta: {
-    color: '#6b7280',
-    fontSize: 12,
+  categoryInfo: {
+    flex: 1,
+  },
+  category: {
+    ...typography.labelLarge,
+    fontWeight: '600',
+  },
+  date: {
+    ...typography.bodySmall,
+    marginTop: spacing.xs,
+  },
+  rightSection: {
+    alignItems: 'flex-end',
+  },
+  amount: {
+    ...typography.labelLarge,
+    fontWeight: '700',
   },
   note: {
-    color: '#6b7280',
-    fontSize: 12,
-    maxWidth: 150,
+    ...typography.bodySmall,
+    marginTop: spacing.md,
+    fontStyle: 'italic',
   },
 });
