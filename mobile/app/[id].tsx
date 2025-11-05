@@ -228,12 +228,18 @@ export default function ExpenseDetailScreen() {
             size="md"
             onPress={() => setEditing(false)}
             disabled={saving}
-            fullWidth
-            style={{ marginRight: spacing.md }}
+            style={{ width: 120, marginRight: spacing.md }}
           >
             Cancel
           </Button>
-          <Button size="md" onPress={handleSave} disabled={saving} loading={saving} fullWidth>
+
+          <Button
+            size="md"
+            onPress={handleSave}
+            disabled={saving}
+            loading={saving}
+            style={{ flex: 1 }}
+          >
             Save Changes
           </Button>
         </View>

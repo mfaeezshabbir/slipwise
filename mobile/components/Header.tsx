@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, View as RNView } from 'react-native';
+import { StyleSheet, View as RNView, Pressable } from 'react-native';
 import { Text } from './Themed';
 import { useColorScheme } from './useColorScheme';
 import Colors, { spacing, borderRadius } from '@/constants/Colors';
+import { ChevronLeft } from 'lucide-react-native';
 
 interface HeaderProps {
   title: string;
@@ -28,9 +29,17 @@ export function Header({ title, subtitle, rightAction, showBackButton, onBackPre
     >
       <RNView style={styles.leftSection}>
         {showBackButton && (
-          <Text style={[styles.backButton, { color: colors.primary }]} onPress={onBackPress}>
-            ← Back
-          </Text>
+          <Pressable
+            onPress={onBackPress}
+            style={[
+              styles.chevronBox,
+              { backgroundColor: colors.backgroundSecondary, borderColor: colors.border },
+            ]}
+            accessibilityRole="button"
+            hitSlop={8}
+          >
+            <ChevronLeft size={20} color={colors.primary} />
+          </Pressable>
         )}
       </RNView>
 
@@ -77,5 +86,13 @@ const styles = StyleSheet.create({
   backButton: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  chevronBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
   },
 });

@@ -51,7 +51,7 @@ export default function ExpenseItem({ expense }: { expense: Expense }) {
 
   return (
     <Pressable onPress={handlePress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-      <Card shadowSize="small">
+      <Card>
         <View style={styles.content}>
           {/* Left section: Icon and category */}
           <View style={styles.leftSection}>

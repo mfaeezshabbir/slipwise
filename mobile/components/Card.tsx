@@ -26,7 +26,7 @@ export function Card({
     switch (variant) {
       case 'elevated':
         return {
-          backgroundColor: colors.backgroundSecondary,
+          backgroundColor: colors.background,
           ...shadowStyle,
         };
       case 'outlined':

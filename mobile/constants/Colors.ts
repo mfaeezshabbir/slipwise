@@ -113,7 +113,7 @@ export default {
     // Component specific
     tabIconDefault: DARK_TEXT_TERTIARY,
     tabIconSelected: BRAND_PRIMARY,
-    cardBackground: DARK_BG_SECONDARY,
+    cardBackground: DARK_BG_PRIMARY,
     inputBackground: DARK_BG_TERTIARY,
     inputBorder: DARK_BORDER,
     shadow: DARK_SHADOW,
