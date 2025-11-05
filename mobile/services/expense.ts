@@ -1,55 +1,78 @@
-import { loadExpenses, saveExpenses } from './storage';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 export type Expense = {
   id: string;
-  vendor: string;
+  title: string;
   amount: number;
-  date: string; // ISO
-  category?: string;
-  notes?: string;
+  date: string; // ISO datetime
+  note?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-const API_URL = process.env.API_URL ?? 'http://localhost:4000';
+export type CreateExpenseInput = {
+  title: string;
+  amount: number;
+  date: string;
+  note?: string;
+};
+
+export type UpdateExpenseInput = Partial<CreateExpenseInput>;
+
+const BASE_URL = Constants.expoConfig?.extra?.apiUrl || process.env.API_URL;
 
 async function fetchJson(path: string, opts: any = {}) {
-  const url = `${API_URL}${path}`;
-  const res = await fetch(url, opts);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.status === 204 ? null : res.json();
+  const url = `${BASE_URL}${path}`;
+
+  try {
+    const res = await fetch(url, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        ...opts.headers,
+      },
+    });
+
+    const text = await res.text();
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+
+    return res.status === 204 ? null : JSON.parse(text);
+  } catch (err: any) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to ${opts.method || 'GET'} ${path}: ${message}`);
+  }
 }
 
 export async function getAllExpenses(): Promise<Expense[]> {
-  try {
-    const data = await fetchJson('/expenses');
-    return data as Expense[];
-  } catch (err) {
-    // fallback to local storage
-    return await loadExpenses();
-  }
+  const data = await fetchJson('/expenses');
+  return (Array.isArray(data) ? data : []) as Expense[];
 }
 
-export async function addExpense(expense: Omit<Expense, 'id'>): Promise<Expense> {
-  try {
-    const created = await fetchJson('/expenses', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(expense),
-    });
-    return created as Expense;
-  } catch (err) {
-    // fallback: persist locally
-    const items = await loadExpenses();
-    const newItem: Expense = { id: Date.now().toString(), ...expense } as Expense;
-    items.unshift(newItem);
-    await saveExpenses(items);
-    return newItem;
-  }
+export async function getExpenseById(id: string): Promise<Expense> {
+  const data = await fetchJson(`/expenses/${id}`);
+  return data as Expense;
 }
 
-export async function clearExpenses() {
-  try {
-    await fetchJson('/expenses', { method: 'DELETE' });
-  } catch (err) {
-    await saveExpenses([]);
-  }
+export async function createExpense(input: CreateExpenseInput): Promise<Expense> {
+  const created = await fetchJson('/expenses', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  return created as Expense;
+}
+
+export async function updateExpense(id: string, input: UpdateExpenseInput): Promise<Expense> {
+  const updated = await fetchJson(`/expenses/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(input),
+  });
+  return updated as Expense;
+}
+
+export async function deleteExpense(id: string): Promise<void> {
+  await fetchJson(`/expenses/${id}`, { method: 'DELETE' });
 }

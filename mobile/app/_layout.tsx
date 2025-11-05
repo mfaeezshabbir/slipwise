@@ -1,6 +1,7 @@
 import { Slot, ErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 // note: using plain View for logo to avoid extra native dependency
 import Colors from '@/constants/Colors';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -34,13 +35,15 @@ export default function RootLayout() {
 
 function AppLayout() {
   return (
-    <SafeAreaView style={s.container}>
-      <StatusBar style="auto" />
-      <AppHeader />
-      <View style={s.content}>
-        <Slot />
-      </View>
-    </SafeAreaView>
+    <SafeAreaProvider>
+      <SafeAreaView style={s.container}>
+        <StatusBar style="auto" />
+        <AppHeader />
+        <View style={s.content}>
+          <Slot />
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 

@@ -1,20 +1,29 @@
 import type { Expense } from '@/services/expense';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
 import { Text, View } from './Themed';
 
 export default function ExpenseItem({ expense }: { expense: Expense }) {
+  const router = useRouter();
+
+  const handlePress = () => {
+    router.push(`/${expense.id}` as any);
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.row}>
-        <Text style={styles.vendor}>{expense.vendor}</Text>
-        <Text style={styles.amount}>${Number(expense.amount).toFixed(2)}</Text>
+    <Pressable onPress={handlePress}>
+      <View style={styles.container}>
+        <View style={styles.row}>
+          <Text style={styles.title}>{expense.title}</Text>
+          <Text style={styles.amount}>${Number(expense.amount).toFixed(2)}</Text>
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.meta}>{new Date(expense.date).toLocaleDateString()}</Text>
+          {expense.note && <Text style={styles.note}>{expense.note}</Text>}
+        </View>
       </View>
-      <View style={styles.row}>
-        <Text style={styles.meta}>{new Date(expense.date).toLocaleDateString()}</Text>
-        <Text style={styles.meta}>{expense.category ?? 'Uncategorized'}</Text>
-      </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -30,9 +39,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  vendor: {
+  title: {
     fontWeight: '600',
     color: '#0f172a',
+    flex: 1,
   },
   amount: {
     fontWeight: '700',
@@ -41,5 +51,10 @@ const styles = StyleSheet.create({
   meta: {
     color: '#6b7280',
     fontSize: 12,
+  },
+  note: {
+    color: '#6b7280',
+    fontSize: 12,
+    maxWidth: 150,
   },
 });
