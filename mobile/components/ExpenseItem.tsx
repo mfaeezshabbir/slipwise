@@ -17,8 +17,8 @@ export default function ExpenseItem({ expense }: { expense: Expense }) {
     router.push(`/${expense.id}` as any);
   };
 
-  // Determine category color based on category
-  const getCategoryColor = (note?: string) => {
+  // Determine category color based on category or note
+  const getCategoryColor = (text?: string) => {
     const categoryKeywords: Record<string, string> = {
       food: '#F97316',
       transport: '#3B82F6',
@@ -28,17 +28,18 @@ export default function ExpenseItem({ expense }: { expense: Expense }) {
       utilities: '#F59E0B',
     };
 
-    if (!note) return '#6B7280';
+    if (!text) return '#6B7280';
 
-    const lowerNote = note.toLowerCase();
+    const lowerNote = text.toLowerCase();
     for (const [key, color] of Object.entries(categoryKeywords)) {
       if (lowerNote.includes(key)) return color;
     }
     return '#6B7280';
   };
 
-  const categoryColor = getCategoryColor(expense.note);
-  const category = expense.note?.split(/[,\s]/)[0] || 'Other';
+  const categoryName =
+    (expense as any).category?.name || expense.note?.split(/[,\s]/)[0] || 'Other';
+  const categoryColor = getCategoryColor((expense as any).category?.name || expense.note);
 
   const formattedDate = new Date(expense.date).toLocaleDateString('en-US', {
     month: 'short',
@@ -56,7 +57,7 @@ export default function ExpenseItem({ expense }: { expense: Expense }) {
           {/* Left section: Icon and category */}
           <View style={styles.leftSection}>
             <View style={[styles.iconContainer, { backgroundColor: categoryColor + '20' }]}>
-              <CategoryIcon category={category} size={24} color={categoryColor} />
+              <CategoryIcon category={categoryName} size={24} color={categoryColor} />
             </View>
             <View style={styles.categoryInfo}>
               <Text style={[styles.category, { color: colors.text }]}>{expense.title}</Text>

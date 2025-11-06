@@ -19,19 +19,19 @@ router.get('/:id', async (req, res) => {
 
 // Create an expense
 router.post('/', async (req, res) => {
-  const { title, amount, date, note } = req.body;
+  const { title, amount, date, note, categoryId } = req.body;
   if (!title || amount == null || !date) {
     return res.status(400).json({ error: 'title, amount and date are required' });
   }
-  const created = await controller.createExpense({ title, amount, date, note });
+  const created = await controller.createExpense({ title, amount, date, note, categoryId });
   res.status(201).json(created);
 });
 
 // Update an expense
 router.put('/:id', async (req, res) => {
   const id = req.params.id;
-  const { title, amount, date, note } = req.body;
-  const updated = await controller.updateExpense(id, { title, amount, date, note });
+  const { title, amount, date, note, categoryId } = req.body;
+  const updated = await controller.updateExpense(id, { title, amount, date, note, categoryId });
   if (!updated) return res.status(404).json({ error: 'Expense not found' });
   res.json(updated);
 });

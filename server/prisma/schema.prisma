@@ -21,6 +21,16 @@ model Expense {
   amount    Float
   date      DateTime
   note      String?
+  categoryId String? @db.ObjectId
+  category   Category? @relation(fields: [categoryId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime?
+}
+
+model Category {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  expenses  Expense[]
 }

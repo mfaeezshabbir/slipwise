@@ -5,6 +5,7 @@ const path = require('path');
 
 const expensesRouter = require('./routes/expenses');
 const ocrRouter = require('./routes/ocr');
+const categoriesRouter = require('./routes/categories');
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.get('/', (req, res) => {
 
 app.use('/expenses', expensesRouter);
 app.use('/ocr', ocrRouter);
+app.use('/categories', categoriesRouter);
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));

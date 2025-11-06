@@ -7,6 +7,7 @@ export type Expense = {
   amount: number;
   date: string; // ISO datetime
   note?: string;
+  category?: { id: string; name: string };
   createdAt?: string;
   updatedAt?: string;
 };
@@ -16,6 +17,7 @@ export type CreateExpenseInput = {
   amount: number;
   date: string;
   note?: string;
+  categoryId?: string;
 };
 
 export type UpdateExpenseInput = Partial<CreateExpenseInput>;
@@ -43,7 +45,7 @@ async function fetchJson(path: string, opts: any = {}) {
     return res.status === 204 ? null : JSON.parse(text);
   } catch (err: any) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to ${opts.method || 'GET'} ${path}: ${message}`);
+    throw new Error(`Failed to fetch expenses`);
   }
 }
 

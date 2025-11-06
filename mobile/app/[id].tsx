@@ -2,36 +2,25 @@ import { View, Text } from '@/components/Themed';
 import { getExpenseById, deleteExpense, updateExpense, type Expense } from '@/services/expense';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, ScrollView, Alert, ActivityIndicator, View as RNView } from 'react-native';
+import { StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
-import { TextInput } from '@/components/TextInput';
 import { CategoryIcon } from '@/components/Icons';
+import { ExpenseForm, type ExpenseFormData } from '@/components/ExpenseForm';
 import { useColorScheme } from '@/components/useColorScheme';
-
-interface FormErrors {
-  title?: string;
-  amount?: string;
-  date?: string;
-}
 
 export default function ExpenseDetailScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const { id } = useLocalSearchParams<{ id: string }>();
+
   const [expense, setExpense] = useState<Expense | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState<FormErrors>({});
-
-  const [editTitle, setEditTitle] = useState('');
-  const [editAmount, setEditAmount] = useState('');
-  const [editDate, setEditDate] = useState('');
-  const [editNote, setEditNote] = useState('');
 
   useEffect(() => {
     loadExpense();
@@ -43,10 +32,6 @@ export default function ExpenseDetailScreen() {
       setLoading(true);
       const data = await getExpenseById(id as string);
       setExpense(data);
-      setEditTitle(data.title);
-      setEditAmount(data.amount.toString());
-      setEditDate(data.date.split('T')[0]);
-      setEditNote(data.note || '');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load expense';
       Alert.alert('Error', msg);
@@ -77,56 +62,31 @@ export default function ExpenseDetailScreen() {
     ]);
   };
 
-  const validateForm = () => {
-    const newErrors: FormErrors = {};
-
-    if (!editTitle.trim()) {
-      newErrors.title = 'Title is required';
-    }
-
-    if (!editAmount.trim()) {
-      newErrors.amount = 'Amount is required';
-    } else {
-      const amountNum = parseFloat(editAmount);
-      if (isNaN(amountNum) || amountNum <= 0) {
-        newErrors.amount = 'Amount must be a positive number';
-      }
-    }
-
-    if (!editDate.trim()) {
-      newErrors.date = 'Date is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!validateForm()) {
-      return;
-    }
-
+  const handleEditSubmit = async (data: ExpenseFormData) => {
     try {
       setSaving(true);
       if (!id) return;
-      const amountNum = parseFloat(editAmount);
+
       await updateExpense(id as string, {
-        title: editTitle.trim(),
-        amount: amountNum,
-        date: editDate,
-        note: editNote.trim() || undefined,
+        title: data.title,
+        amount: parseFloat(data.amount),
+        date: data.date,
+        note: data.note || undefined,
+        categoryId: data.categoryId,
       });
+
       setEditing(false);
       await loadExpense();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to update expense';
-      console.error('[ExpenseDetail] Update error:', err);
-      Alert.alert('Error', msg);
     } finally {
       setSaving(false);
     }
   };
 
+  const handleEditCancel = () => {
+    setEditing(false);
+  };
+
+  // Loading state
   if (loading) {
     return (
       <View style={[styles.centerContainer, { backgroundColor: colors.background }]}>
@@ -138,6 +98,7 @@ export default function ExpenseDetailScreen() {
     );
   }
 
+  // Not found state
   if (!expense) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -152,102 +113,32 @@ export default function ExpenseDetailScreen() {
     );
   }
 
+  // Editing mode - show form
   if (editing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Header title="Edit Expense" showBackButton onBackPress={() => setEditing(false)} />
+        <Header title="Edit Expense" showBackButton onBackPress={handleEditCancel} />
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Card shadowSize="small">
-            <View style={styles.formContainer}>
-              <TextInput
-                label="Title"
-                value={editTitle}
-                onChangeText={(text) => {
-                  setEditTitle(text);
-                  if (errors.title) setErrors({ ...errors, title: undefined });
-                }}
-                error={errors.title}
-                editable={!saving}
-              />
-
-              <TextInput
-                label="Amount"
-                value={editAmount}
-                onChangeText={(text) => {
-                  setEditAmount(text);
-                  if (errors.amount) setErrors({ ...errors, amount: undefined });
-                }}
-                keyboardType="decimal-pad"
-                error={errors.amount}
-                editable={!saving}
-              />
-
-              <TextInput
-                label="Date"
-                value={editDate}
-                onChangeText={(text) => {
-                  setEditDate(text);
-                  if (errors.date) setErrors({ ...errors, date: undefined });
-                }}
-                hint="Format: YYYY-MM-DD"
-                editable={!saving}
-              />
-
-              <RNView style={styles.noteSection}>
-                <Text style={[styles.noteLabel, { color: colors.text }]}>Note</Text>
-                <RNView
-                  style={[
-                    styles.noteInputWrapper,
-                    {
-                      backgroundColor: colors.inputBackground,
-                      borderColor: colors.inputBorder,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.noteInputText,
-                      { color: editNote ? colors.text : colors.textTertiary },
-                    ]}
-                  >
-                    {editNote || 'Add notes...'}
-                  </Text>
-                </RNView>
-              </RNView>
-            </View>
-          </Card>
-        </ScrollView>
-
-        <View style={[styles.buttonContainer, { backgroundColor: colors.background }]}>
-          <Button
-            variant="outline"
-            size="md"
-            onPress={() => setEditing(false)}
-            disabled={saving}
-            style={{ width: 120, marginRight: spacing.md }}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            size="md"
-            onPress={handleSave}
-            disabled={saving}
-            loading={saving}
-            style={{ flex: 1 }}
-          >
-            Save Changes
-          </Button>
-        </View>
+        <ExpenseForm
+          mode="edit"
+          initialData={{
+            title: expense.title,
+            amount: expense.amount.toString(),
+            date: expense.date.split('T')[0],
+            note: expense.note || '',
+            categoryId: (expense as any).category?.id,
+          }}
+          onSubmit={handleEditSubmit}
+          onCancel={handleEditCancel}
+          isLoading={saving}
+          submitButtonText="Save Changes"
+        />
       </View>
     );
   }
 
-  const getCategoryColor = (note?: string) => {
+  // Detail view
+  const getCategoryColor = (categoryName?: string, note?: string): string => {
     const categoryKeywords: Record<string, string> = {
       food: '#F97316',
       transport: '#3B82F6',
@@ -257,16 +148,27 @@ export default function ExpenseDetailScreen() {
       utilities: '#F59E0B',
     };
 
-    if (!note) return '#6B7280';
-    const lowerNote = note.toLowerCase();
-    for (const [key, color] of Object.entries(categoryKeywords)) {
-      if (lowerNote.includes(key)) return color;
+    // First try the category name
+    if (categoryName) {
+      const lower = categoryName.toLowerCase();
+      for (const [key, color] of Object.entries(categoryKeywords)) {
+        if (lower.includes(key)) return color;
+      }
     }
+
+    // Then try the note
+    if (note) {
+      const lower = note.toLowerCase();
+      for (const [key, color] of Object.entries(categoryKeywords)) {
+        if (lower.includes(key)) return color;
+      }
+    }
+
     return '#6B7280';
   };
 
-  const categoryColor = getCategoryColor(expense.note);
-  const category = expense.note?.split(/[,\s]/)[0] || 'Other';
+  const categoryColor = getCategoryColor((expense as any).category?.name, expense.note);
+  const category = (expense as any).category?.name || expense.note?.split(/[,\s]/)[0] || 'Other';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -310,7 +212,7 @@ export default function ExpenseDetailScreen() {
               </Text>
             </View>
 
-            {expense.note && (
+            {(expense as any).category || expense.note ? (
               <>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <View style={styles.detailRow}>
@@ -319,16 +221,20 @@ export default function ExpenseDetailScreen() {
                   </Text>
                   <Text style={[styles.detailValue, { color: colors.text }]}>{category}</Text>
                 </View>
+              </>
+            ) : null}
 
+            {expense.note ? (
+              <>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <View style={styles.detailRow}>
                   <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>Notes</Text>
                   <Text style={[styles.detailValue, { color: colors.text }]}>{expense.note}</Text>
                 </View>
               </>
-            )}
+            ) : null}
 
-            {expense.createdAt && (
+            {expense.createdAt ? (
               <>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <View style={styles.detailRow}>
@@ -338,7 +244,7 @@ export default function ExpenseDetailScreen() {
                   </Text>
                 </View>
               </>
-            )}
+            ) : null}
           </View>
         </Card>
       </ScrollView>
@@ -429,36 +335,6 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-  },
-  formContainer: {
-    gap: spacing.md,
-  },
-  noteSection: {
-    marginBottom: spacing.lg,
-  },
-  noteLabel: {
-    ...typography.labelLarge,
-    marginBottom: spacing.sm,
-  },
-  noteInputWrapper: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    minHeight: 100,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  noteInputText: {
-    ...typography.bodyMedium,
-  },
-  buttonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.md,
   },
   actionContainer: {
     position: 'absolute',
