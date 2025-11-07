@@ -165,9 +165,9 @@ export default function DashboardScreen() {
       </View>
 
       {/* Floating Action Button */}
-      <View style={styles.fabContainer}>
+      {/* <View style={styles.fabContainer}>
         <FAB onPress={() => router.push('/add' as any)} label="+ Add Expense" size="large" />
-      </View>
+      </View> */}
     </View>
   );
 }

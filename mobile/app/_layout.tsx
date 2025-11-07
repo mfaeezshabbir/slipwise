@@ -4,6 +4,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import BottomBar from '@/components/BottomBar';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -55,6 +56,7 @@ function AppLayout() {
         >
           <Slot />
         </KeyboardAvoidingView>
+        <BottomBar />
       </SafeAreaView>
     </SafeAreaProvider>
   );
