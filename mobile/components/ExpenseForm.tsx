@@ -8,7 +8,9 @@ import {
   Platform,
   Alert,
   Keyboard,
+  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useEffect, useState, useRef } from 'react';
 import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
 import { getCategories, createCategory } from '@/services/category';
@@ -65,7 +67,8 @@ export const ExpenseForm = ({
   // Validation and UI state
   const [errors, setErrors] = useState<FormErrors>({});
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [categorySearchText, setCategorySearchText] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
@@ -138,7 +141,8 @@ export const ExpenseForm = ({
   const handleCategorySelect = (item: { id: string; name: string }) => {
     setCategory(item.name);
     setCategoryId(item.id);
-    setShowCategorySuggestions(false);
+    setShowCategoryModal(false);
+    setCategorySearchText('');
   };
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -190,7 +194,7 @@ export const ExpenseForm = ({
 
   const defaultSubmitText = mode === 'add' ? 'Save Expense' : 'Save Changes';
   const filteredCategories = categories.filter((c) =>
-    c.name.toLowerCase().includes(category.trim().toLowerCase())
+    c.name.toLowerCase().includes(categorySearchText.trim().toLowerCase())
   );
 
   return (
@@ -272,63 +276,16 @@ export const ExpenseForm = ({
                 <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Category</Text>
                 <View style={styles.sectionDivider} />
 
-                {/* Category Input with Autocomplete */}
-                <View style={styles.categoryInputWrapper}>
+                {/* Category Input - Click to open modal */}
+                <Pressable onPress={() => setShowCategoryModal(true)}>
                   <TextInput
                     label="Category"
                     placeholder="e.g. food, transport, shopping"
                     value={category}
-                    onChangeText={(text) => {
-                      setCategory(text);
-                      setCategoryId(undefined);
-                      setShowCategorySuggestions(text.length > 0);
-                    }}
-                    editable={!isLoading}
+                    editable={false}
+                    pointerEvents="none"
                   />
-
-                  {/* Dropdown Suggestions */}
-                  {showCategorySuggestions && category.trim().length > 0 && (
-                    <FlatList
-                      data={filteredCategories}
-                      keyExtractor={(item) => item.id}
-                      scrollEnabled={true}
-                      ItemSeparatorComponent={() => (
-                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-                      )}
-                      renderItem={({ item }) => (
-                        <Pressable
-                          onPress={() => handleCategorySelect(item)}
-                          style={({ pressed }) => [
-                            styles.suggestionItemRow,
-                            {
-                              backgroundColor: pressed
-                                ? colors.backgroundTertiary
-                                : colors.inputBackground,
-                            },
-                          ]}
-                        >
-                          <View style={styles.suggestionLeft}>
-                            <Search size={16} color={colors.primary} />
-                          </View>
-
-                          <Text style={[styles.suggestionText, { color: colors.text }]}>
-                            {item.name}
-                          </Text>
-
-                          <Pressable
-                            onPress={() => {
-                              setCategory('');
-                              setShowCategorySuggestions(false);
-                            }}
-                            style={styles.suggestionRight}
-                          >
-                            <ChevronRight size={18} color={colors.primary} />
-                          </Pressable>
-                        </Pressable>
-                      )}
-                    />
-                  )}
-                </View>
+                </Pressable>
               </View>
 
               {/* Notes Section */}
@@ -376,6 +333,91 @@ export const ExpenseForm = ({
           {submitButtonText || defaultSubmitText}
         </Button>
       </View>
+
+      {/* Category Modal */}
+      <Modal
+        visible={showCategoryModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => {
+          setShowCategoryModal(false);
+          setCategorySearchText('');
+        }}
+      >
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Pressable
+              onPress={() => {
+                setShowCategoryModal(false);
+                setCategorySearchText('');
+              }}
+              style={styles.modalCloseButton}
+            >
+              <Text style={[styles.modalCloseButtonText, { color: colors.primary }]}>✕</Text>
+            </Pressable>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Select Category</Text>
+            <RNView style={styles.modalCloseButton} />
+          </View>
+
+          {/* Search Input */}
+          <View style={styles.modalSearchContainer}>
+            <TextInput
+              placeholder="Search or type new category..."
+              value={categorySearchText}
+              onChangeText={setCategorySearchText}
+              autoFocus
+            />
+          </View>
+
+          {/* Categories List */}
+          <FlatList
+            data={categorySearchText.trim().length > 0 ? filteredCategories : categories}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => handleCategorySelect(item)}
+                style={({ pressed }) => [
+                  styles.categoryModalItem,
+                  {
+                    backgroundColor: pressed ? colors.backgroundTertiary : colors.background,
+                  },
+                ]}
+              >
+                <Text style={[styles.categoryModalItemText, { color: colors.text }]}>
+                  {item.name}
+                </Text>
+              </Pressable>
+            )}
+            ItemSeparatorComponent={() => (
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            )}
+            ListEmptyComponent={
+              categorySearchText.trim().length > 0 ? (
+                <View style={styles.modalEmpty}>
+                  <Text style={[styles.modalEmptyText, { color: colors.textSecondary }]}>
+                    No categories found
+                  </Text>
+                  <Pressable
+                    onPress={async () => {
+                      try {
+                        const created = await createCategory(categorySearchText.trim());
+                        handleCategorySelect(created);
+                      } catch (err) {
+                        Alert.alert('Error', 'Failed to create category');
+                      }
+                    }}
+                    style={[styles.createCategoryButton, { borderColor: colors.primary }]}
+                  >
+                    <Text style={[styles.createCategoryButtonText, { color: colors.primary }]}>
+                      Create "{categorySearchText.trim()}"
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null
+            }
+          />
+        </SafeAreaView>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };
@@ -415,77 +457,79 @@ const styles = StyleSheet.create({
   spacer: {
     width: spacing.md,
   },
-  categoryInputWrapper: {
-    position: 'relative',
-  },
-  suggestionsDropdown: {
-    marginTop: spacing.sm,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-    maxHeight: 250,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  suggestionItem: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  suggestionText: {
-    ...typography.bodyMedium,
-  },
-  suggestionItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  suggestionLeft: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  suggestionRight: {
-    marginLeft: 'auto',
-    paddingLeft: spacing.sm,
-  },
   divider: {
     height: 1,
     marginVertical: 0,
   },
-  noResults: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-  },
-  noResultsText: {
-    ...typography.bodySmall,
-    fontStyle: 'italic',
-  },
   noteSection: {
     marginBottom: spacing.lg,
-  },
-  noteLabel: {
-    ...typography.labelLarge,
-    marginBottom: spacing.sm,
   },
   noteInputWrapper: {
     minHeight: 100,
     paddingVertical: spacing.md,
-  },
-  noteInputText: {
-    ...typography.bodyMedium,
   },
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseButtonText: {
+    fontSize: 24,
+    fontWeight: '600',
+  },
+  modalTitle: {
+    ...typography.labelLarge,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalSearchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  categoryModalItem: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  categoryModalItemText: {
+    ...typography.bodyMedium,
+    fontSize: 16,
+  },
+  modalEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.lg,
+  },
+  modalEmptyText: {
+    ...typography.bodyMedium,
+  },
+  createCategoryButton: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+  },
+  createCategoryButtonText: {
+    ...typography.labelLarge,
+    textAlign: 'center',
   },
 });
