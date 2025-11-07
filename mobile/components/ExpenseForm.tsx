@@ -16,6 +16,7 @@ import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { useColorScheme } from '@/components/useColorScheme';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Search, ChevronRight } from 'lucide-react-native';
 
 interface FormErrors {
   title?: string;
@@ -80,6 +81,17 @@ export const ExpenseForm = ({
       mounted = false;
     };
   }, []);
+
+  // When categories load (or initialData changes), pre-fill the category name for edit mode
+  useEffect(() => {
+    if (initialData?.categoryId && categories.length > 0) {
+      const match = categories.find((c) => c.id === initialData.categoryId);
+      if (match) {
+        setCategory(match.name);
+        setCategoryId(match.id);
+      }
+    }
+  }, [categories, initialData?.categoryId]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -265,17 +277,31 @@ export const ExpenseForm = ({
                         <Pressable
                           onPress={() => handleCategorySelect(item)}
                           style={({ pressed }) => [
-                            styles.suggestionItem,
+                            styles.suggestionItemRow,
                             {
                               backgroundColor: pressed
                                 ? colors.backgroundTertiary
-                                : colors.background,
+                                : colors.inputBackground,
                             },
                           ]}
                         >
+                          <View style={styles.suggestionLeft}>
+                            <Search size={16} color={colors.primary} />
+                          </View>
+
                           <Text style={[styles.suggestionText, { color: colors.text }]}>
                             {item.name}
                           </Text>
+
+                          <Pressable
+                            onPress={() => {
+                              setCategory('');
+                              setShowCategorySuggestions(false);
+                            }}
+                            style={styles.suggestionRight}
+                          >
+                            <ChevronRight size={18} color={colors.primary} />
+                          </Pressable>
                         </Pressable>
                       )}
                     />
@@ -291,25 +317,15 @@ export const ExpenseForm = ({
                 <View style={styles.sectionDivider} />
 
                 <RNView style={styles.noteSection}>
-                  <Text style={[styles.noteLabel, { color: colors.text }]}>Note (Optional)</Text>
-                  <RNView
-                    style={[
-                      styles.noteInputWrapper,
-                      {
-                        backgroundColor: colors.inputBackground,
-                        borderColor: colors.inputBorder,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.noteInputText,
-                        { color: note ? colors.text : colors.textTertiary },
-                      ]}
-                    >
-                      {note || 'Add any additional notes...'}
-                    </Text>
-                  </RNView>
+                  <TextInput
+                    value={note}
+                    onChangeText={(text) => setNote(text)}
+                    placeholder="Add any additional notes..."
+                    multiline
+                    numberOfLines={5}
+                    style={[styles.noteInputWrapper]}
+                    editable={!isLoading}
+                  />
                 </RNView>
               </View>
             </View>
@@ -395,6 +411,24 @@ const styles = StyleSheet.create({
   suggestionText: {
     ...typography.bodyMedium,
   },
+  suggestionItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  suggestionLeft: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  suggestionRight: {
+    marginLeft: 'auto',
+    paddingLeft: spacing.sm,
+  },
   divider: {
     height: 1,
     marginVertical: 0,
@@ -416,10 +450,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   noteInputWrapper: {
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
     minHeight: 100,
-    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
   noteInputText: {
@@ -430,6 +461,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    borderTopWidth: 1,
   },
 });
