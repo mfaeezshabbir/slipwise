@@ -7,8 +7,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Keyboard,
 } from 'react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
 import { getCategories, createCategory } from '@/services/category';
 import { TextInput } from '@/components/TextInput';
@@ -51,6 +52,7 @@ export const ExpenseForm = ({
 }: ExpenseFormProps) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const flatListRef = useRef<FlatList>(null);
 
   // Form state
   const [title, setTitle] = useState(initialData?.title || '');
@@ -65,6 +67,7 @@ export const ExpenseForm = ({
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -79,6 +82,21 @@ export const ExpenseForm = ({
     })();
     return () => {
       mounted = false;
+    };
+  }, []);
+
+  // Keyboard visibility listener
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+    });
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
     };
   }, []);
 
@@ -178,11 +196,15 @@ export const ExpenseForm = ({
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
       <FlatList
+        ref={flatListRef}
         data={[{ key: 'form' }]} // Dummy data to use FlatList
         keyExtractor={(item) => item.key}
+        scrollEnabled={isKeyboardVisible}
+        contentContainerStyle={styles.flatListContent}
         renderItem={() => (
           <Card shadowSize="medium">
             <View style={styles.formContainer}>
@@ -361,6 +383,10 @@ export const ExpenseForm = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  flatListContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.xl,
   },
   formContainer: {
     gap: spacing.lg,

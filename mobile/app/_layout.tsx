@@ -1,6 +1,6 @@
 import { Slot, ErrorBoundary } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -46,12 +46,15 @@ function AppLayout() {
     <SafeAreaProvider>
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        edges={['left', 'right', 'top']}
+        edges={['left', 'right', 'top', 'bottom']}
       >
         <StatusBar style={isDark ? 'light' : 'dark'} />
-        <View style={[styles.content, { backgroundColor: colors.background }]}>
+        <KeyboardAvoidingView
+          style={[styles.content, { backgroundColor: colors.background }]}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+        >
           <Slot />
-        </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </SafeAreaProvider>
   );
