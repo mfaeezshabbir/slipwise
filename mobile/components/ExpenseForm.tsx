@@ -1,5 +1,13 @@
 import { View, Text } from '@/components/Themed';
-import { StyleSheet, ScrollView, Alert, FlatList, Pressable, View as RNView } from 'react-native';
+import {
+  StyleSheet,
+  FlatList,
+  Pressable,
+  View as RNView,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from 'react-native';
 import React, { useEffect, useState } from 'react';
 import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
 import { getCategories, createCategory } from '@/services/category';
@@ -7,6 +15,7 @@ import { TextInput } from '@/components/TextInput';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { useColorScheme } from '@/components/useColorScheme';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 interface FormErrors {
   title?: string;
@@ -54,6 +63,7 @@ export const ExpenseForm = ({
   const [errors, setErrors] = useState<FormErrors>({});
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -101,6 +111,14 @@ export const ExpenseForm = ({
     setShowCategorySuggestions(false);
   };
 
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(selectedDate.toISOString().split('T')[0]);
+      if (errors.date) setErrors({ ...errors, date: undefined });
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) {
       return;
@@ -141,150 +159,186 @@ export const ExpenseForm = ({
   };
 
   const defaultSubmitText = mode === 'add' ? 'Save Expense' : 'Save Changes';
-  const formTitle = mode === 'add' ? 'Add Expense' : 'Edit Expense';
-  const formSubtitle = mode === 'add' ? 'Create a new expense record' : 'Update expense details';
-
   const filteredCategories = categories.filter((c) =>
     c.name.toLowerCase().includes(category.trim().toLowerCase())
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Card shadowSize="small">
-          <View style={styles.formContainer}>
-            {/* Title Input */}
-            <TextInput
-              label="Title"
-              placeholder="e.g., Groceries, Gas, Coffee"
-              value={title}
-              onChangeText={(text) => {
-                setTitle(text);
-                if (errors.title) setErrors({ ...errors, title: undefined });
-              }}
-              error={errors.title}
-              editable={!isLoading}
-            />
+    <KeyboardAvoidingView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <FlatList
+        data={[{ key: 'form' }]} // Dummy data to use FlatList
+        keyExtractor={(item) => item.key}
+        renderItem={() => (
+          <Card shadowSize="medium">
+            <View style={styles.formContainer}>
+              {/* Title Section */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                  Expense Details
+                </Text>
+                <View style={styles.sectionDivider} />
 
-            {/* Amount Input */}
-            <TextInput
-              label="Amount"
-              placeholder="0.00"
-              value={amount}
-              onChangeText={(text) => {
-                setAmount(text);
-                if (errors.amount) setErrors({ ...errors, amount: undefined });
-              }}
-              keyboardType="decimal-pad"
-              error={errors.amount}
-              editable={!isLoading}
-            />
+                {/* Title Input */}
+                <TextInput
+                  label="Title"
+                  placeholder="e.g., Groceries, Gas, Coffee"
+                  value={title}
+                  onChangeText={(text) => {
+                    setTitle(text);
+                    if (errors.title) setErrors({ ...errors, title: undefined });
+                  }}
+                  error={errors.title}
+                  editable={!isLoading}
+                />
 
-            {/* Date Input */}
-            <TextInput
-              label="Date"
-              placeholder={new Date().toISOString().split('T')[0]}
-              value={date}
-              onChangeText={(text) => {
-                setDate(text);
-                if (errors.date) setErrors({ ...errors, date: undefined });
-              }}
-              hint="Format: YYYY-MM-DD"
-              editable={!isLoading}
-            />
-
-            {/* Category Input with Autocomplete */}
-            <TextInput
-              label="Category"
-              placeholder="e.g. food, transport, shopping"
-              value={category}
-              onChangeText={(text) => {
-                setCategory(text);
-                setCategoryId(undefined);
-                setShowCategorySuggestions(true);
-              }}
-              editable={!isLoading}
-            />
-
-            {showCategorySuggestions &&
-              category.trim().length > 0 &&
-              filteredCategories.length > 0 && (
-                <Card>
-                  <FlatList
-                    data={filteredCategories}
-                    keyExtractor={(item) => item.id}
-                    scrollEnabled={false}
-                    renderItem={({ item }) => (
-                      <Pressable
-                        onPress={() => handleCategorySelect(item)}
-                        style={({ pressed }) => [
-                          styles.categorySuggestion,
-                          {
-                            backgroundColor: pressed ? colors.backgroundTertiary : 'transparent',
-                          },
-                        ]}
-                      >
-                        <Text style={{ color: colors.text }}>{item.name}</Text>
-                      </Pressable>
+                {/* Amount & Date Row */}
+                <View style={styles.rowContainer}>
+                  <View style={styles.flex1}>
+                    <TextInput
+                      label="Amount"
+                      placeholder="0.00"
+                      value={amount}
+                      onChangeText={(text) => {
+                        setAmount(text);
+                        if (errors.amount) setErrors({ ...errors, amount: undefined });
+                      }}
+                      keyboardType="decimal-pad"
+                      error={errors.amount}
+                      editable={!isLoading}
+                    />
+                  </View>
+                  <View style={styles.spacer} />
+                  <View style={styles.flex1}>
+                    <Pressable onPress={() => setShowDatePicker(true)}>
+                      <TextInput
+                        label="Date"
+                        placeholder={new Date().toISOString().split('T')[0]}
+                        value={date}
+                        editable={false}
+                        hint="Tap to select a date"
+                      />
+                    </Pressable>
+                    {showDatePicker && (
+                      <DateTimePicker
+                        value={new Date(date || Date.now())}
+                        mode="date"
+                        display="default"
+                        onChange={handleDateChange}
+                      />
                     )}
+                  </View>
+                </View>
+              </View>
+
+              {/* Category Section */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Category</Text>
+                <View style={styles.sectionDivider} />
+
+                {/* Category Input with Autocomplete */}
+                <View style={styles.categoryInputWrapper}>
+                  <TextInput
+                    label="Category"
+                    placeholder="e.g. food, transport, shopping"
+                    value={category}
+                    onChangeText={(text) => {
+                      setCategory(text);
+                      setCategoryId(undefined);
+                      setShowCategorySuggestions(text.length > 0);
+                    }}
+                    editable={!isLoading}
                   />
-                </Card>
-              )}
 
-            {/* Note Input */}
-            <RNView style={styles.noteSection}>
-              <Text style={[styles.noteLabel, { color: colors.text }]}>Note (Optional)</Text>
-              <RNView
-                style={[
-                  styles.noteInputWrapper,
-                  {
-                    backgroundColor: colors.inputBackground,
-                    borderColor: colors.inputBorder,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.noteInputText,
-                    { color: note ? colors.text : colors.textTertiary },
-                  ]}
-                >
-                  {note || 'Add any additional notes...'}
-                </Text>
-              </RNView>
-            </RNView>
+                  {/* Dropdown Suggestions */}
+                  {showCategorySuggestions && category.trim().length > 0 && (
+                    <FlatList
+                      data={filteredCategories}
+                      keyExtractor={(item) => item.id}
+                      scrollEnabled={true}
+                      ItemSeparatorComponent={() => (
+                        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                      )}
+                      renderItem={({ item }) => (
+                        <Pressable
+                          onPress={() => handleCategorySelect(item)}
+                          style={({ pressed }) => [
+                            styles.suggestionItem,
+                            {
+                              backgroundColor: pressed
+                                ? colors.backgroundTertiary
+                                : colors.background,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.suggestionText, { color: colors.text }]}>
+                            {item.name}
+                          </Text>
+                        </Pressable>
+                      )}
+                    />
+                  )}
+                </View>
+              </View>
 
-            {/* Tip Card - only show on add mode */}
-            {mode === 'add' && title && (
-              <Card variant="outlined">
-                <Text style={[styles.suggestionText, { color: colors.textSecondary }]}>
-                  💡 Tip: Include category keywords like "food", "transport", "shopping",
-                  "entertainment", "health", or "utilities" in your title or note for better
-                  organization.
+              {/* Notes Section */}
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                  Additional Info
                 </Text>
-              </Card>
-            )}
-          </View>
-        </Card>
-      </ScrollView>
+                <View style={styles.sectionDivider} />
+
+                <RNView style={styles.noteSection}>
+                  <Text style={[styles.noteLabel, { color: colors.text }]}>Note (Optional)</Text>
+                  <RNView
+                    style={[
+                      styles.noteInputWrapper,
+                      {
+                        backgroundColor: colors.inputBackground,
+                        borderColor: colors.inputBorder,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.noteInputText,
+                        { color: note ? colors.text : colors.textTertiary },
+                      ]}
+                    >
+                      {note || 'Add any additional notes...'}
+                    </Text>
+                  </RNView>
+                </RNView>
+              </View>
+            </View>
+          </Card>
+        )}
+      />
 
       {/* Action Buttons */}
-      <View style={[styles.buttonContainer, { backgroundColor: colors.background }]}>
+      <View style={styles.buttonContainer}>
         <Button
           variant="outline"
           size="md"
           onPress={onCancel}
           disabled={isLoading}
-          fullWidth
-          style={{ marginRight: spacing.md }}
+          style={{ flex: 1, marginRight: spacing.md }}
         >
           Cancel
         </Button>
-        <Button size="md" onPress={handleSubmit} disabled={isLoading} loading={isLoading} fullWidth>
+        <Button
+          size="md"
+          onPress={handleSubmit}
+          disabled={isLoading}
+          loading={isLoading}
+          style={{ flex: 1 }}
+        >
           {submitButtonText || defaultSubmitText}
         </Button>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -292,18 +346,67 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollContent: {
-    flexGrow: 1,
-    padding: spacing.lg,
-    paddingBottom: spacing.huge,
-  },
   formContainer: {
+    gap: spacing.lg,
+  },
+  section: {
     gap: spacing.md,
   },
-  categorySuggestion: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
+  sectionTitle: {
+    ...typography.labelLarge,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontSize: 12,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+  },
+  flex1: {
+    flex: 1,
+  },
+  spacer: {
+    width: spacing.md,
+  },
+  categoryInputWrapper: {
+    position: 'relative',
+  },
+  suggestionsDropdown: {
+    marginTop: spacing.sm,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    maxHeight: 250,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  suggestionItem: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  suggestionText: {
+    ...typography.bodyMedium,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 0,
+  },
+  noResults: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    ...typography.bodySmall,
+    fontStyle: 'italic',
   },
   noteSection: {
     marginBottom: spacing.lg,
@@ -322,18 +425,11 @@ const styles = StyleSheet.create({
   noteInputText: {
     ...typography.bodyMedium,
   },
-  suggestionText: {
-    ...typography.bodySmall,
-    fontStyle: 'italic',
-  },
   buttonContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
-    gap: spacing.md,
+    borderTopWidth: 1,
   },
 });
