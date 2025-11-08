@@ -1,11 +1,21 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getSymbolForCurrency,
+  DEFAULT_CURRENCY_CODE,
+  DEFAULT_CURRENCY_SYMBOL,
+  getAllCurrencies,
+} from '@/services/currency';
 
 interface ThemeContextType {
   isDark: boolean;
   toggleTheme: () => Promise<void>;
   colorScheme: 'light' | 'dark';
+  currencyCode: string;
+  currencySymbol: string;
+  setCurrency: (code: string) => Promise<void>;
+  availableCurrencies: Array<{ code: string; name: string; symbol?: string }>;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -15,9 +25,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = useState<boolean>(systemColorScheme === 'dark');
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load saved theme preference on mount
+  // currency state
+  const [currencyCode, setCurrencyCode] = useState<string>(DEFAULT_CURRENCY_CODE);
+  const [currencySymbol, setCurrencySymbol] = useState<string>(DEFAULT_CURRENCY_SYMBOL);
+  const [availableCurrencies, setAvailableCurrencies] = useState<
+    Array<{ code: string; name: string; symbol?: string }>
+  >([]);
+
+  // Load saved preferences on mount
   useEffect(() => {
-    const loadTheme = async () => {
+    const loadPrefs = async () => {
       try {
         const savedTheme = await AsyncStorage.getItem('theme');
         if (savedTheme) {
@@ -25,14 +42,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         } else if (systemColorScheme) {
           setIsDark(systemColorScheme === 'dark');
         }
+
+        const savedCurrency = await AsyncStorage.getItem('currency');
+        if (savedCurrency) {
+          setCurrencyCode(savedCurrency);
+          setCurrencySymbol(getSymbolForCurrency(savedCurrency));
+        } else {
+          setCurrencyCode(DEFAULT_CURRENCY_CODE);
+          setCurrencySymbol(getSymbolForCurrency(DEFAULT_CURRENCY_CODE));
+        }
+        try {
+          // load full list from package (sync) or fallback
+          const list = getAllCurrencies();
+          setAvailableCurrencies(list);
+        } catch (err) {
+          // ignore and keep defaults
+        }
       } catch (error) {
-        console.error('Error loading theme preference:', error);
+        console.error('Error loading preferences:', error);
       } finally {
         setIsLoaded(true);
       }
     };
 
-    loadTheme();
+    loadPrefs();
   }, [systemColorScheme]);
 
   const toggleTheme = async () => {
@@ -42,6 +75,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem('theme', newIsDark ? 'dark' : 'light');
     } catch (error) {
       console.error('Error saving theme preference:', error);
+    }
+  };
+
+  const setCurrency = async (code: string) => {
+    try {
+      setCurrencyCode(code);
+      setCurrencySymbol(getSymbolForCurrency(code));
+      await AsyncStorage.setItem('currency', code);
+    } catch (err) {
+      console.error('Error saving currency preference:', err);
     }
   };
 
@@ -55,6 +98,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         isDark,
         toggleTheme,
         colorScheme: isDark ? 'dark' : 'light',
+        currencyCode,
+        currencySymbol,
+        setCurrency,
+        availableCurrencies: availableCurrencies,
       }}
     >
       {children}

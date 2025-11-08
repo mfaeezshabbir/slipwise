@@ -7,11 +7,13 @@ import { Card } from './Card';
 import { CategoryIcon } from './Icons';
 import { useColorScheme } from './useColorScheme';
 import Colors, { spacing, typography } from '@/constants/Colors';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function ExpenseItem({ expense }: { expense: Expense }) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const { currencySymbol } = useTheme();
 
   const handlePress = () => {
     router.push(`/${expense.id}` as any);
@@ -70,7 +72,8 @@ export default function ExpenseItem({ expense }: { expense: Expense }) {
           {/* Right section: Amount */}
           <View style={styles.rightSection}>
             <Text style={[styles.amount, { color: colors.danger }]}>
-              ${Number(expense.amount).toFixed(2)}
+              {currencySymbol}
+              {Number(expense.amount).toFixed(2)}
             </Text>
           </View>
         </View>

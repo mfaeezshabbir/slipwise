@@ -17,12 +17,14 @@ import { Card } from '@/components/Card';
 import { AppLogo } from '@/components/Logo';
 import { FAB } from '@/components/FAB';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useTheme } from '@/context/ThemeContext';
 import { useColorScheme } from '@/components/useColorScheme';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const { currencySymbol } = useTheme();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +98,10 @@ export default function DashboardScreen() {
         <View style={styles.summaryGrid}>
           <View style={styles.statBlock}>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
-            <Text style={[styles.statValue, { color: colors.primary }]}>${total.toFixed(2)}</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>
+              {currencySymbol}
+              {total.toFixed(2)}
+            </Text>
           </View>
 
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
@@ -111,7 +116,8 @@ export default function DashboardScreen() {
           <View style={styles.statBlock}>
             <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Average</Text>
             <Text style={[styles.statValue, { color: colors.secondary }]}>
-              ${averageExpense.toFixed(2)}
+              {currencySymbol}
+              {averageExpense.toFixed(2)}
             </Text>
           </View>
         </View>

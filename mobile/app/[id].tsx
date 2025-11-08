@@ -10,11 +10,13 @@ import { Card } from '@/components/Card';
 import { CategoryIcon } from '@/components/Icons';
 import { ExpenseForm, type ExpenseFormData } from '@/components/ExpenseForm';
 import { useColorScheme } from '@/components/useColorScheme';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function ExpenseDetailScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const { currencySymbol } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [expense, setExpense] = useState<Expense | null>(null);
@@ -184,7 +186,8 @@ export default function ExpenseDetailScreen() {
             <View style={styles.amountTextContainer}>
               <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>Amount</Text>
               <Text style={[styles.amount, { color: colors.danger }]}>
-                ${Number(expense.amount).toFixed(2)}
+                {currencySymbol}
+                {Number(expense.amount).toFixed(2)}
               </Text>
             </View>
           </View>
