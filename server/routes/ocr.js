@@ -9,32 +9,53 @@ const upload = multer({ dest: path.join(__dirname, '..', 'uploads') });
 
 // POST /ocr - accepts multipart/form-data with field 'image'
 router.post('/', upload.single('image'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'image file is required in field `image`' });
+  console.log('=== OCR Request Received ===');
+  console.log('File:', req.file);
+  console.log('Body:', req.body);
+
+  if (!req.file) {
+    console.log('❌ Error: No image file provided');
+    return res.status(400).json({ error: 'image file is required in field `image`' });
+  }
 
   const filepath = req.file.path;
   const lang = process.env.OCR_LANG || 'eng';
-  const worker = createWorker();
+
+  console.log('✅ File received:', filepath);
+  console.log('📝 Language:', lang);
+
+  const worker = await createWorker(lang);
 
   try {
-    await worker.load();
-    await worker.loadLanguage(lang);
-    await worker.initialize(lang);
+    console.log('🔄 Starting OCR recognition...');
     const { data } = await worker.recognize(filepath);
+    console.log('✅ OCR Recognition Complete');
+    console.log('📊 Raw OCR Data:', data);
+    console.log('📄 Text:', data.text);
+    console.log('🎯 Confidence:', data.confidence);
+
     await worker.terminate();
+    console.log('✅ Worker terminated');
 
     // remove uploaded file
     try {
       fs.unlinkSync(filepath);
+      console.log('🗑️ Uploaded file deleted');
     } catch (e) {
-      /* ignore */
+      console.log('⚠️ Could not delete file:', e.message);
     }
 
+    console.log('📤 Sending response:', { text: data.text, confidence: data.confidence });
     return res.json({ text: data.text, confidence: data.confidence });
   } catch (err) {
+    console.log('❌ OCR Error:', err);
+    console.log('Error Message:', err.message);
+    console.log('Error Stack:', err.stack);
+
     try {
       fs.unlinkSync(filepath);
     } catch (e) {
-      /* ignore */
+      console.log('⚠️ Could not delete file on error:', e.message);
     }
     return res.status(500).json({ error: 'OCR failed', details: err.message });
   }

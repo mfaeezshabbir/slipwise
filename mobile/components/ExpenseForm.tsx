@@ -42,6 +42,7 @@ interface ExpenseFormProps {
   onCancel: () => void;
   isLoading?: boolean;
   submitButtonText?: string;
+  onOCR?: () => void;
 }
 
 export const ExpenseForm = ({
@@ -51,6 +52,7 @@ export const ExpenseForm = ({
   onCancel,
   isLoading = false,
   submitButtonText,
+  onOCR,
 }: ExpenseFormProps) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
@@ -314,6 +316,17 @@ export const ExpenseForm = ({
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
+        {mode === 'add' && onOCR && (
+          <Button
+            variant="secondary"
+            size="md"
+            onPress={onOCR}
+            disabled={isLoading}
+            style={{ flex: 1, marginRight: spacing.md }}
+          >
+            📸 OCR
+          </Button>
+        )}
         <Button
           variant="outline"
           size="md"
