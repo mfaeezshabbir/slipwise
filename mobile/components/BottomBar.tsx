@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter, useSegments } from 'expo-router';
 import { FAB } from './FAB';
-import { BanknoteArrowDown, Bolt, ChartPie, House } from 'lucide-react-native';
+import { BanknoteArrowDown, Bolt, ChartPie, House, Camera } from 'lucide-react-native';
 
 /**
  * BottomBar - a rounded bottom navigation with a centered FAB
@@ -24,7 +24,7 @@ export default function BottomBar() {
   const fabShadow = shadows[colorScheme === 'dark' ? 'dark' : 'light'].medium;
 
   // Hide rules: change these segment keys to match routes where bottom bar should be hidden
-  const HIDE_ON_SEGMENTS = ['add', 'onboarding', 'login'];
+  const HIDE_ON_SEGMENTS = ['add', 'ocr', 'onboarding', 'login'];
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
