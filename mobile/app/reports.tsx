@@ -30,6 +30,7 @@ import {
 } from 'lucide-react-native';
 
 type PeriodType = 'week' | 'month' | 'quarter' | 'year';
+type TransactionType = 'all' | 'income' | 'expense';
 
 interface DayData {
   day: string;
@@ -54,6 +55,8 @@ interface Insight {
 
 interface PeriodStats {
   total: number;
+  income: number;
+  expenses: number;
   dailyAverage: number;
   previousTotal: number;
   changePercent: number;
@@ -88,8 +91,11 @@ export default function Analytics() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<PeriodType>('week');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
+  const [transactionType, setTransactionType] = useState<TransactionType>('all');
   const [stats, setStats] = useState<PeriodStats>({
     total: 0,
+    income: 0,
+    expenses: 0,
     dailyAverage: 0,
     previousTotal: 0,
     changePercent: 0,
@@ -146,19 +152,40 @@ export default function Analytics() {
 
       const { start, end, prevStart, prevEnd } = getPeriodDates(period);
 
+      // Filter by transaction type
+      let filteredData = data;
+      if (transactionType === 'income') {
+        filteredData = data.filter((e) => (e.type || 'expense') === 'income');
+      } else if (transactionType === 'expense') {
+        filteredData = data.filter((e) => (e.type || 'expense') === 'expense');
+      }
+
       // Current period
-      const currentExpenses = data.filter((e) => {
+      const currentExpenses = filteredData.filter((e) => {
         const d = new Date(e.date);
         return d >= start && d <= end;
       });
 
       // Previous period
-      const previousExpenses = data.filter((e) => {
+      const previousExpenses = filteredData.filter((e) => {
         const d = new Date(e.date);
         return d >= prevStart && d <= prevEnd;
       });
 
-      // Calculate totals
+      // Calculate totals for income and expenses separately
+      const allCurrentExpenses = data.filter((e) => {
+        const d = new Date(e.date);
+        return d >= start && d <= end;
+      });
+
+      const incomeTotal = allCurrentExpenses
+        .filter((e) => (e.type || 'expense') === 'income')
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+
+      const expenseTotal = allCurrentExpenses
+        .filter((e) => (e.type || 'expense') === 'expense')
+        .reduce((sum, e) => sum + Number(e.amount), 0);
+
       const currentTotal = currentExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
       const previousTotal = previousExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
       const changePercent =
@@ -256,28 +283,30 @@ export default function Analytics() {
       const daysInPeriod = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       const dailyAverage = currentTotal / daysInPeriod;
 
-      // Budget utilization (using daily budget from context)
-      const budgetPerDay = dailyBudget;
+      // Budget utilization (using daily budget from context, only for expenses)
+      const budgetPerDay = transactionType === 'income' ? 0 : dailyBudget;
       const totalBudget = budgetPerDay * daysInPeriod;
-      const budgetUtilization = (currentTotal / totalBudget) * 100;
+      const budgetUtilization = totalBudget > 0 ? (expenseTotal / totalBudget) * 100 : 0;
 
       // Generate insights
       const insights: Insight[] = [];
 
-      if (budgetUtilization > 100) {
-        insights.push({
-          type: 'warning',
-          title: 'Over Budget',
-          description: `You've spent ${(budgetUtilization - 100).toFixed(0)}% more than your typical daily budget.`,
-          icon: '⚠️',
-        });
-      } else if (budgetUtilization < 50) {
-        insights.push({
-          type: 'success',
-          title: 'Great Savings!',
-          description: `You're ${(100 - budgetUtilization).toFixed(0)}% under your typical spending.`,
-          icon: '🎉',
-        });
+      if (transactionType !== 'income') {
+        if (budgetUtilization > 100) {
+          insights.push({
+            type: 'warning',
+            title: 'Over Budget',
+            description: `You've spent ${(budgetUtilization - 100).toFixed(0)}% more than your typical daily budget.`,
+            icon: '⚠️',
+          });
+        } else if (budgetUtilization < 50) {
+          insights.push({
+            type: 'success',
+            title: 'Great Savings!',
+            description: `You're ${(100 - budgetUtilization).toFixed(0)}% under your typical spending.`,
+            icon: '🎉',
+          });
+        }
       }
 
       if (categories.length > 0 && categories[0].trend === 'up' && categories[0].trendPercent) {
@@ -289,7 +318,7 @@ export default function Analytics() {
         });
       }
 
-      if (dailyAverage > dailyBudget * 1.2) {
+      if (dailyAverage > dailyBudget * 1.2 && transactionType !== 'income') {
         insights.push({
           type: 'info',
           title: 'High Daily Average',
@@ -302,13 +331,18 @@ export default function Analytics() {
         insights.push({
           type: 'success',
           title: 'On Track',
-          description: 'Your spending patterns look healthy and consistent.',
+          description:
+            transactionType === 'income'
+              ? "You're earning well! Keep it up."
+              : 'Your spending patterns look healthy and consistent.',
           icon: '✅',
         });
       }
 
       setStats({
         total: currentTotal,
+        income: incomeTotal,
+        expenses: expenseTotal,
         dailyAverage,
         previousTotal,
         changePercent,
@@ -334,7 +368,7 @@ export default function Analytics() {
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, transactionType, dailyBudget]);
 
   useFocusEffect(
     useCallback(() => {
@@ -401,6 +435,42 @@ export default function Analytics() {
           </Pressable>
         </View>
 
+        {/* Transaction Type Tabs */}
+        <View style={styles.transactionTabs}>
+          {(['all', 'income', 'expense'] as TransactionType[]).map((type) => (
+            <Pressable
+              key={type}
+              onPress={() => setTransactionType(type)}
+              style={({ pressed }) => [
+                styles.transactionTab,
+                {
+                  backgroundColor:
+                    transactionType === type
+                      ? type === 'income'
+                        ? colors.success
+                        : type === 'expense'
+                          ? colors.danger
+                          : colors.primary
+                      : colors.cardBackground,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.transactionTabText,
+                  {
+                    color: transactionType === type ? '#fff' : colors.text,
+                    fontWeight: transactionType === type ? '700' : '500',
+                  },
+                ]}
+              >
+                {type === 'all' ? 'All' : type === 'income' ? 'Income' : 'Expenses'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         {/* Header Stats */}
         <View style={styles.headerStats}>
           <View style={styles.changeIndicator}>
@@ -440,6 +510,45 @@ export default function Analytics() {
             </Text>
           </View>
         </View>
+
+        {/* Cash Flow Summary */}
+        {transactionType === 'all' && (
+          <Card style={[styles.cashFlowCard, styles.elevation]}>
+            <Text style={[styles.cashFlowTitle, { color: colors.text }]}>Cash Flow</Text>
+            <View style={styles.cashFlowRow}>
+              <View style={styles.cashFlowItem}>
+                <Text style={[styles.cashFlowLabel, { color: colors.textSecondary }]}>Income</Text>
+                <Text style={[styles.cashFlowAmount, { color: colors.success }]}>
+                  {currencySymbol}
+                  {stats.income.toFixed(0)}
+                </Text>
+              </View>
+              <View style={styles.cashFlowDivider} />
+              <View style={styles.cashFlowItem}>
+                <Text style={[styles.cashFlowLabel, { color: colors.textSecondary }]}>
+                  Expenses
+                </Text>
+                <Text style={[styles.cashFlowAmount, { color: colors.danger }]}>
+                  {currencySymbol}
+                  {stats.expenses.toFixed(0)}
+                </Text>
+              </View>
+              <View style={styles.cashFlowDivider} />
+              <View style={styles.cashFlowItem}>
+                <Text style={[styles.cashFlowLabel, { color: colors.textSecondary }]}>Net</Text>
+                <Text
+                  style={[
+                    styles.cashFlowAmount,
+                    { color: stats.income - stats.expenses >= 0 ? colors.success : colors.danger },
+                  ]}
+                >
+                  {currencySymbol}
+                  {(stats.income - stats.expenses).toFixed(0)}
+                </Text>
+              </View>
+            </View>
+          </Card>
+        )}
 
         {/* Daily Spending Chart */}
         {stats.dailyData.length > 0 && (
@@ -1137,5 +1246,60 @@ const styles = StyleSheet.create({
   },
   quickStatDate: {
     fontSize: 11,
+  },
+  // Transaction Type Tabs
+  transactionTabs: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    justifyContent: 'space-between',
+  },
+  transactionTab: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  transactionTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Cash Flow Card
+  cashFlowCard: {
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  cashFlowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: spacing.lg,
+  },
+  cashFlowRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cashFlowItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  cashFlowLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  cashFlowAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cashFlowDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    marginHorizontal: spacing.md,
   },
 });

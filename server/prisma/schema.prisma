@@ -21,6 +21,8 @@ model Expense {
   amount    Float
   date      DateTime
   note      String?
+  type      String   @default("expense") // "income" or "expense"
+  account   String   @default("default") // Account/wallet identifier
   categoryId String? @db.ObjectId
   category   Category? @relation(fields: [categoryId], references: [id])
   createdAt DateTime @default(now())
@@ -30,6 +32,7 @@ model Expense {
 model Category {
   id        String   @id @map("_id") @default(auto()) @db.ObjectId
   name      String   @unique
+  type      String   @default("expense") // "income" or "expense"
   createdAt DateTime @default(now())
 
   expenses  Expense[]

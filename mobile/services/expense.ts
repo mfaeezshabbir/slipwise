@@ -7,6 +7,8 @@ export type Expense = {
   amount: number;
   date: string; // ISO datetime
   note?: string;
+  type?: 'income' | 'expense'; // "income" or "expense"
+  account?: string; // Account/wallet identifier
   category?: { id: string; name: string };
   createdAt?: string;
   updatedAt?: string;
@@ -17,6 +19,8 @@ export type CreateExpenseInput = {
   amount: number;
   date: string;
   note?: string;
+  type?: 'income' | 'expense';
+  account?: string;
   categoryId?: string;
 };
 

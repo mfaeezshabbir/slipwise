@@ -19,6 +19,7 @@ import { FAB } from '@/components/FAB';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTheme } from '@/context/ThemeContext';
 import { useColorScheme } from '@/components/useColorScheme';
+import { Plus, ArrowUpRight, MoreHorizontal } from 'lucide-react-native';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -122,6 +123,52 @@ export default function DashboardScreen() {
           </View>
         </View>
       </Card>
+
+      {/* Quick Action Buttons */}
+      <View style={styles.quickActionsContainer}>
+        <Pressable
+          onPress={() => router.push('/add' as any)}
+          style={({ pressed }) => [
+            styles.quickActionButton,
+            {
+              backgroundColor: colors.primary,
+              opacity: pressed ? 0.8 : 1,
+            },
+          ]}
+        >
+          <Plus size={20} color="#fff" />
+          <Text style={styles.quickActionText}>Expense</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push('/add' as any)}
+          style={({ pressed }) => [
+            styles.quickActionButton,
+            {
+              backgroundColor: colors.success,
+              opacity: pressed ? 0.8 : 1,
+            },
+          ]}
+        >
+          <ArrowUpRight size={20} color="#fff" />
+          <Text style={styles.quickActionText}>Income</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.quickActionButton,
+            {
+              backgroundColor: colors.cardBackground,
+              borderWidth: 1,
+              borderColor: colors.border,
+              opacity: pressed ? 0.8 : 1,
+            },
+          ]}
+        >
+          <MoreHorizontal size={20} color={colors.text} />
+          <Text style={[styles.quickActionText, { color: colors.text }]}>More</Text>
+        </Pressable>
+      </View>
 
       {/* Error Message */}
       {error && (
@@ -242,6 +289,28 @@ const styles = StyleSheet.create({
   statValue: {
     ...typography.h5,
     fontWeight: '700',
+  },
+  quickActionsContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    justifyContent: 'space-between',
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+  },
+  quickActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
   },
   errorContent: {
     paddingHorizontal: spacing.md,
