@@ -8,6 +8,7 @@ export type OCRResult = {
   text: string;
   confidence: number;
 };
+export type OCRServerResponse = OCRResult & { parsed?: ParsedExpenseData };
 
 export type ParsedExpenseData = {
   title?: string;
@@ -22,6 +23,31 @@ export async function recognizeReceiptImage(imageUri: string): Promise<OCRResult
   try {
     console.log('🎬 OCR Request Started');
     console.log('📸 Image URI:', imageUri);
+
+    // Quick preflight check: ensure the server is reachable before attempting upload.
+    // This gives a clearer error when the device/emulator cannot reach the dev server.
+    const checkServerReachable = async (url: string, timeout = 5000) => {
+      try {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), timeout);
+        const res = await fetch(url, { method: 'GET', signal: controller.signal });
+        clearTimeout(id);
+        return res.ok;
+      } catch (e) {
+        return false;
+      }
+    };
+
+    const healthUrl = `${BASE_URL}/`;
+    const reachable = await checkServerReachable(healthUrl, 5000);
+    if (!reachable) {
+      const hint =
+        `Server unreachable at ${BASE_URL}. Common causes: dev server not running, server bound to localhost only, device/emulator not on same network, or a firewall blocking port 4000.\n` +
+        `If you're running on an Android emulator, try using 10.0.2.2:4000 instead of localhost or your machine IP.\n` +
+        `Ensure the server logs show incoming requests (server/index.js) and that CORS/firewall allow connections.`;
+      console.log('❌ Preflight: server not reachable', hint);
+      throw new Error(`OCR server not reachable at ${BASE_URL}. ${hint}`);
+    }
 
     // Read the image file as base64 if it's a file URI
     let imageData: any;
@@ -82,52 +108,107 @@ export async function recognizeReceiptImage(imageUri: string): Promise<OCRResult
  * This is a simple parser that looks for common patterns
  */
 export function parseOCRText(text: string): ParsedExpenseData {
-  const lines = text.split('\n').filter((line) => line.trim());
+  const lines = text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((line) => line.length > 0);
 
   let amount: number | undefined;
 
-  // 1. First, try to find "AMOUNT" keyword followed by a number
-  const amountKeywordMatch = text.match(/AMOUNT\s+[\$€£]?\s*([\d,]+(?:[.,]\d{2})?)/i);
-  if (amountKeywordMatch) {
-    const amountStr = amountKeywordMatch[1].replace(/,/g, '');
-    amount = parseFloat(amountStr);
-    console.log('✅ Found amount via AMOUNT keyword:', amount);
-  }
+  const keywords = /(amount|total|fare|paid|amt|balance|amount due|grand total|price)/i;
+  const currencySigns = /[\$€£₹Rs\u20B9]/i;
 
-  // 2. If no amount found via keyword, try common currency patterns: $XX.XX, XX.XX
-  if (!amount) {
-    const amountMatch = text.match(/[\$€£]?\s*([\d,]+[.,]\d{2})/);
-    if (amountMatch) {
-      const amountStr = amountMatch[1].replace(/,/g, '');
-      amount = parseFloat(amountStr);
-      console.log('✅ Found amount via currency pattern:', amount);
+  // Helper: parse numeric token to number
+  const parseNumeric = (s: string) => {
+    const cleaned = s
+      .replace(/,/g, '')
+      .replace(/[^\d.]/g, '')
+      .trim();
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  // Helper: detect if a line looks like an ID (e.g., '31202-5145179-3' or contains PNR/CNIC)
+  const looksLikeId = (line: string) => {
+    if (/pnr|cnic|id|passport|ref(erence)?/i.test(line)) return true;
+    // multiple digit groups separated by hyphens (common in CNIC/passport)
+    if (/\d+[-]\d+[-]\d+/.test(line)) return true;
+    // very long continuous digits (>7) probably not an amount
+    const longDigits = line.replace(/[^0-9]/g, '');
+    if (longDigits.length >= 8) return true;
+    return false;
+  };
+
+  // 1) Prefer lines that contain explicit keywords or currency signs
+  for (const line of lines) {
+    if (keywords.test(line) || currencySigns.test(line)) {
+      // extract first numeric token in the line
+      const token = line.match(/[\d,]+(?:[.,]\d{2})?/);
+      if (token) {
+        // skip if the whole line looks like an ID
+        if (looksLikeId(line)) {
+          console.log('⛔ Skipping ID-like line for amount:', line);
+          continue;
+        }
+        const n = parseNumeric(token[0]);
+        if (n && n > 0 && n < 10000000) {
+          amount = n;
+          console.log('✅ Found amount via keyword/currency line:', amount, 'line:', line);
+          break;
+        }
+      }
     }
   }
 
-  // 3. If still no amount, look for any large number (could be amount without decimals)
+  // 2) Fallback: look for decimal numbers anywhere (prefer decimals)
   if (!amount) {
-    const allNumbers = text.match(/[\d,]+/g);
-    if (allNumbers) {
-      // Filter and convert to actual numbers
-      const numericValues = allNumbers
-        .map((n) => parseFloat(n.replace(/,/g, '')))
-        .filter((n) => n > 0 && n < 1000000); // Reasonable expense range
-
-      if (numericValues.length > 0) {
-        // Take the largest number (likely the total)
-        amount = Math.max(...numericValues);
-        console.log('✅ Found amount via largest number:', amount);
+    const decimalToken = text.match(/[\d,]+[.,]\d{2}/);
+    if (decimalToken) {
+      const n = parseNumeric(decimalToken[0]);
+      if (n && n > 0 && n < 10000000) {
+        amount = n;
+        console.log('✅ Found amount via decimal pattern:', amount);
       }
+    }
+  }
+
+  // 3) Final fallback: collect numeric candidates from safe lines (exclude ID-like lines)
+  if (!amount) {
+    const candidates: number[] = [];
+    for (const line of lines) {
+      if (looksLikeId(line)) {
+        console.log('⛔ Skipping ID-like line when gathering candidates:', line);
+        continue;
+      }
+      const tokens = line.match(/[\d,]+(?:[.,]\d{2})?/g);
+      if (!tokens) continue;
+      for (const t of tokens) {
+        const n = parseNumeric(t);
+        if (n && n > 0 && n < 10000000) candidates.push(n);
+      }
+    }
+    if (candidates.length > 0) {
+      // choose the largest reasonable candidate but prefer values less likely to be IDs
+      amount = Math.max(...candidates);
+      console.log(
+        '✅ Found amount via filtered candidates (largest):',
+        amount,
+        'candidates:',
+        candidates
+      );
     }
   }
 
   // Try to get a title from the first line or business name
   let title: string | undefined;
 
-  // First, look for common bank/business names
-  const businessMatch = text.match(/^(\w+(?:\s+\w+)?)\s*$/m);
-  if (businessMatch) {
-    title = businessMatch[1];
+  // First, attempt to find a line that looks like a merchant/business name
+  const firstNonEmpty = lines.find((l) => l.length > 2);
+  if (firstNonEmpty) {
+    // avoid lines that contain words like PNR, CNIC, Booking, Passenger
+    if (!/pnr|cnic|booking|passenger|ticket|departure/i.test(firstNonEmpty)) {
+      title = firstNonEmpty;
+    }
   }
 
   // Fallback to first line

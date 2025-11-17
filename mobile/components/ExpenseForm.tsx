@@ -116,6 +116,18 @@ export const ExpenseForm = ({
     }
   }, [categories, initialData?.categoryId]);
 
+  // When initialData changes (e.g., from OCR), populate the form fields
+  useEffect(() => {
+    if (!initialData) return;
+
+    // Populate fields from initialData. Overwrite current values so OCR fills the form.
+    setTitle(initialData.title || '');
+    setAmount(initialData.amount || '');
+    setDate(initialData.date || new Date().toISOString().split('T')[0]);
+    setNote(initialData.note || '');
+    setCategoryId(initialData.categoryId);
+  }, [initialData]);
+
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
@@ -194,7 +206,7 @@ export const ExpenseForm = ({
     }
   };
 
-  const defaultSubmitText = mode === 'add' ? 'Save Expense' : 'Save Changes';
+  const defaultSubmitText = mode === 'add' ? 'Save' : 'Update';
   const filteredCategories = categories.filter((c) =>
     c.name.toLowerCase().includes(categorySearchText.trim().toLowerCase())
   );
@@ -324,7 +336,7 @@ export const ExpenseForm = ({
             disabled={isLoading}
             style={{ flex: 1, marginRight: spacing.md }}
           >
-            📸 OCR
+            Upload
           </Button>
         )}
         <Button
@@ -421,7 +433,7 @@ export const ExpenseForm = ({
                     }}
                     style={[styles.createCategoryButton, { borderColor: colors.primary }]}
                   >
-                    <Text style={[styles.createCategoryButtonText, { color: colors.primary }]}>
+                    <Text style={[styles.createCategoryButtonText, { color: colors.text }]}>
                       Create "{categorySearchText.trim()}"
                     </Text>
                   </Pressable>

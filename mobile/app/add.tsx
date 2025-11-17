@@ -71,7 +71,7 @@ export default function AddExpenseScreen() {
         onSubmit={handleSubmit}
         onCancel={handleCancel}
         isLoading={loading}
-        submitButtonText="Save Expense"
+        submitButtonText="Save"
         onOCR={handleOCR}
       />
     </View>

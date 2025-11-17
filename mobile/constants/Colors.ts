@@ -4,7 +4,7 @@
 // Brand Colors
 const BRAND_PRIMARY = '#6366F1'; // Indigo - modern, professional
 const BRAND_PRIMARY_DARK = '#4F46E5'; // Darker indigo for interactions
-const BRAND_SECONDARY = '#EC4899'; // Pink - for accents
+const BRAND_SECONDARY = '#5b06a0ff'; // Pink - for accents
 const BRAND_SUCCESS = '#10B981'; // Emerald - for positive values
 const BRAND_WARNING = '#F59E0B'; // Amber - for warnings
 const BRAND_DANGER = '#EF4444'; // Red - for delete/errors

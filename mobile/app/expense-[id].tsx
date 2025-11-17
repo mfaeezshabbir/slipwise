@@ -133,7 +133,7 @@ export default function ExpenseDetailScreen() {
           onSubmit={handleEditSubmit}
           onCancel={handleEditCancel}
           isLoading={saving}
-          submitButtonText="Save Changes"
+          submitButtonText="Update"
         />
       </View>
     );

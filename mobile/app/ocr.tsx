@@ -77,14 +77,19 @@ export default function OCRScreen() {
       setIsLoading(true);
 
       // Send to OCR service
-      const result = await recognizeReceiptImage(imageUri);
+      const result = (await recognizeReceiptImage(imageUri)) as any;
 
       setOcrText(result.text);
       setConfidence(result.confidence);
 
-      // Parse the OCR text
-      const parsed = parseOCRText(result.text);
-      setParsedData(parsed);
+      // Prefer server-side parsed data when available, otherwise parse locally
+      if (result.parsed) {
+        console.log('📡 Using server-parsed fields:', result.parsed);
+        setParsedData(result.parsed);
+      } else {
+        const parsed = parseOCRText(result.text);
+        setParsedData(parsed);
+      }
     } catch (error) {
       Alert.alert('OCR Error', error instanceof Error ? error.message : 'Failed to process image');
     } finally {
