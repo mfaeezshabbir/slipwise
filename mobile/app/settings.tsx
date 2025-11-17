@@ -1,5 +1,11 @@
-import React from 'react';
-import { View as RNView, StyleSheet, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View as RNView,
+  StyleSheet,
+  Pressable,
+  TextInput as RNTextInput,
+  ScrollView,
+} from 'react-native';
 import { Text, View } from '@/components/Themed';
 import { Header } from '@/components/Header';
 import Colors, { spacing } from '@/constants/Colors';
@@ -7,19 +13,21 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/context/ThemeContext';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Check } from 'lucide-react-native';
 
 export default function Settings() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const theme = useTheme();
   const router = useRouter();
+  const [dailyBudgetInput, setDailyBudgetInput] = useState(theme.dailyBudget.toString());
+  const [budgetSaved, setBudgetSaved] = useState(false);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title="Settings" />
 
-      <RNView style={styles.content}>
+      <ScrollView style={styles.content}>
         <Text style={styles.heading}>Appearance</Text>
         <RNView style={styles.row}>
           <Text>Theme</Text>
@@ -62,9 +70,66 @@ export default function Settings() {
           </Pressable>
         </RNView>
 
+        <Text style={[styles.heading, { marginTop: spacing.xl }]}>Budget</Text>
+        <Text style={styles.note}>Set your daily spending budget for analytics and alerts</Text>
+        <RNView style={{ marginTop: spacing.md }}>
+          <RNView
+            style={[
+              styles.budgetInputContainer,
+              {
+                backgroundColor: colors.backgroundSecondary,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text style={[styles.currencySymbol, { color: colors.text }]}>
+              {theme.currencySymbol}
+            </Text>
+            <RNTextInput
+              style={[
+                styles.budgetInput,
+                {
+                  color: colors.text,
+                },
+              ]}
+              placeholder="Enter daily budget"
+              placeholderTextColor={colors.textSecondary}
+              value={dailyBudgetInput}
+              onChangeText={setDailyBudgetInput}
+              keyboardType="decimal-pad"
+              editable
+            />
+            <Pressable
+              onPress={async () => {
+                const budgetValue = parseFloat(dailyBudgetInput) || 250;
+                await theme.setDailyBudget(budgetValue);
+                setBudgetSaved(true);
+                setTimeout(() => setBudgetSaved(false), 2000);
+              }}
+              style={({ pressed }) => [
+                styles.budgetSaveButton,
+                {
+                  backgroundColor: budgetSaved ? colors.success : colors.primary,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              {budgetSaved ? (
+                <Check size={20} color="#fff" />
+              ) : (
+                <Text style={styles.budgetSaveText}>Save</Text>
+              )}
+            </Pressable>
+          </RNView>
+          <Text style={[styles.budgetHelper, { color: colors.textSecondary }]}>
+            Current daily budget: {theme.currencySymbol}
+            {theme.dailyBudget.toFixed(2)}
+          </Text>
+        </RNView>
+
         <Text style={[styles.heading, { marginTop: spacing.xl }]}>Account</Text>
         <Text style={styles.note}>You can manage account settings here (placeholder).</Text>
-      </RNView>
+      </ScrollView>
     </View>
   );
 }
@@ -124,6 +189,43 @@ const styles = StyleSheet.create({
   },
   note: {
     color: '#6B7280',
+    marginTop: spacing.sm,
+  },
+  budgetInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  currencySymbol: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginRight: spacing.sm,
+  },
+  budgetInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    paddingVertical: spacing.xs,
+  },
+  budgetSaveButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    marginLeft: spacing.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  budgetSaveText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  budgetHelper: {
+    fontSize: 12,
     marginTop: spacing.sm,
   },
 });

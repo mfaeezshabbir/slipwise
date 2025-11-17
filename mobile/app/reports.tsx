@@ -16,7 +16,18 @@ import { getAllExpenses, type Expense } from '@/services/expense';
 import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/components/Card';
 import { BarChart } from 'react-native-chart-kit';
-import { TrendingUp, TrendingDown, Calendar, ChevronDown, Zap } from 'lucide-react-native';
+import {
+  TrendingUp,
+  TrendingDown,
+  Calendar,
+  ChevronDown,
+  Zap,
+  AlertCircle,
+  Target,
+  Flame,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react-native';
 
 type PeriodType = 'week' | 'month' | 'quarter' | 'year';
 
@@ -30,6 +41,15 @@ interface CategoryBreakdown {
   category: string;
   amount: number;
   percentage: number;
+  trend?: 'up' | 'down' | 'neutral';
+  trendPercent?: number;
+}
+
+interface Insight {
+  type: 'warning' | 'success' | 'info';
+  title: string;
+  description: string;
+  icon: string;
 }
 
 interface PeriodStats {
@@ -38,8 +58,12 @@ interface PeriodStats {
   previousTotal: number;
   changePercent: number;
   mostExpensiveDay: { day: string; amount: number };
+  leastExpensiveDay: { day: string; amount: number };
   categories: CategoryBreakdown[];
   dailyData: DayData[];
+  highestSpendingDay: { day: string; amount: number };
+  budgetUtilization: number;
+  insights: Insight[];
 }
 
 const chartConfig = {
@@ -57,7 +81,7 @@ const chartConfig = {
 export default function Analytics() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-  const { currencySymbol } = useTheme();
+  const { currencySymbol, dailyBudget } = useTheme();
   const screenWidth = Dimensions.get('window').width - spacing.lg * 2;
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -70,8 +94,12 @@ export default function Analytics() {
     previousTotal: 0,
     changePercent: 0,
     mostExpensiveDay: { day: '', amount: 0 },
+    leastExpensiveDay: { day: '', amount: 0 },
+    highestSpendingDay: { day: '', amount: 0 },
+    budgetUtilization: 0,
     categories: [],
     dailyData: [],
+    insights: [],
   });
 
   const getPeriodDates = (
@@ -180,29 +208,104 @@ export default function Analytics() {
               fullDay: v.fullDay,
             }));
 
-      // Find most expensive day
+      // Find most and least expensive days
       const mostExpensiveDay =
         dailyData.length > 0
           ? dailyData.reduce((max, d) => (d.amount > max.amount ? d : max))
           : { day: '', amount: 0, fullDay: '' };
 
-      // Categories
+      const leastExpensiveDay =
+        dailyData.filter((d) => d.amount > 0).length > 0
+          ? dailyData
+              .filter((d) => d.amount > 0)
+              .reduce((min, d) => (d.amount < min.amount ? d : min))
+          : { day: '', amount: 0, fullDay: '' };
+
+      // Categories with trend analysis
       const categoryMap = new Map<string, number>();
+      const categoryMapPrev = new Map<string, number>();
+
       currentExpenses.forEach((e) => {
         const cat = (e as any).category?.name || 'Other';
         categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(e.amount));
       });
 
+      previousExpenses.forEach((e) => {
+        const cat = (e as any).category?.name || 'Other';
+        categoryMapPrev.set(cat, (categoryMapPrev.get(cat) || 0) + Number(e.amount));
+      });
+
       const categories: CategoryBreakdown[] = Array.from(categoryMap.entries())
-        .map(([name, amount]) => ({
-          category: name,
-          amount,
-          percentage: (amount / currentTotal) * 100 || 0,
-        }))
+        .map(([name, amount]) => {
+          const prevAmount = categoryMapPrev.get(name) || 0;
+          const trendPercent = prevAmount > 0 ? ((amount - prevAmount) / prevAmount) * 100 : 0;
+          let trend: 'up' | 'down' | 'neutral' = 'neutral';
+          if (trendPercent > 5) trend = 'up';
+          else if (trendPercent < -5) trend = 'down';
+
+          return {
+            category: name,
+            amount,
+            percentage: (amount / currentTotal) * 100 || 0,
+            trend,
+            trendPercent: Math.abs(trendPercent),
+          };
+        })
         .sort((a, b) => b.amount - a.amount);
 
       const daysInPeriod = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
       const dailyAverage = currentTotal / daysInPeriod;
+
+      // Budget utilization (using daily budget from context)
+      const budgetPerDay = dailyBudget;
+      const totalBudget = budgetPerDay * daysInPeriod;
+      const budgetUtilization = (currentTotal / totalBudget) * 100;
+
+      // Generate insights
+      const insights: Insight[] = [];
+
+      if (budgetUtilization > 100) {
+        insights.push({
+          type: 'warning',
+          title: 'Over Budget',
+          description: `You've spent ${(budgetUtilization - 100).toFixed(0)}% more than your typical daily budget.`,
+          icon: '⚠️',
+        });
+      } else if (budgetUtilization < 50) {
+        insights.push({
+          type: 'success',
+          title: 'Great Savings!',
+          description: `You're ${(100 - budgetUtilization).toFixed(0)}% under your typical spending.`,
+          icon: '🎉',
+        });
+      }
+
+      if (categories.length > 0 && categories[0].trend === 'up' && categories[0].trendPercent) {
+        insights.push({
+          type: 'warning',
+          title: `${categories[0].category} Spike`,
+          description: `${categories[0].category} is up ${categories[0].trendPercent.toFixed(0)}% compared to last period.`,
+          icon: '📈',
+        });
+      }
+
+      if (dailyAverage > dailyBudget * 1.2) {
+        insights.push({
+          type: 'info',
+          title: 'High Daily Average',
+          description: `Your daily average of ${dailyAverage.toFixed(0)} is above your daily budget.`,
+          icon: '💰',
+        });
+      }
+
+      if (insights.length === 0) {
+        insights.push({
+          type: 'success',
+          title: 'On Track',
+          description: 'Your spending patterns look healthy and consistent.',
+          icon: '✅',
+        });
+      }
 
       setStats({
         total: currentTotal,
@@ -213,8 +316,18 @@ export default function Analytics() {
           day: mostExpensiveDay.fullDay || mostExpensiveDay.day,
           amount: mostExpensiveDay.amount,
         },
+        leastExpensiveDay: {
+          day: leastExpensiveDay.fullDay || leastExpensiveDay.day,
+          amount: leastExpensiveDay.amount,
+        },
+        highestSpendingDay: {
+          day: mostExpensiveDay.fullDay || mostExpensiveDay.day,
+          amount: mostExpensiveDay.amount,
+        },
+        budgetUtilization,
         categories,
         dailyData,
+        insights,
       });
     } catch (err) {
       console.error('Analytics load error:', err);
@@ -363,9 +476,9 @@ export default function Analytics() {
             </Text>
           </View>
           <Text style={[styles.averageInsight, { color: colors.textSecondary }]}>
-            {stats.dailyAverage < 250
-              ? `Great! You didn't exceed your daily average threshold of ${currencySymbol}250. 🎉`
-              : `Your daily average is higher than the typical threshold of ${currencySymbol}250.`}
+            {stats.dailyAverage < dailyBudget
+              ? `Great! You didn't exceed your daily budget of ${currencySymbol}${dailyBudget.toFixed(2)}. 🎉`
+              : `Your daily average is ${((stats.dailyAverage / dailyBudget) * 100 - 100).toFixed(0)}% higher than your budget.`}
           </Text>
         </Card>
 
@@ -442,6 +555,171 @@ export default function Analytics() {
             ))}
           </View>
         </Card>
+
+        {/* Budget Utilization Card */}
+        <Card style={[styles.budgetCard, styles.elevation]}>
+          <View style={styles.budgetHeader}>
+            <View style={styles.budgetTitleContainer}>
+              <Target size={18} color={colors.primary} style={{ marginRight: spacing.sm }} />
+              <Text style={[styles.budgetTitle, { color: colors.text }]}>Budget Status</Text>
+            </View>
+            <Text style={[styles.budgetPercent, { color: colors.primary }]}>
+              {stats.budgetUtilization.toFixed(0)}%
+            </Text>
+          </View>
+
+          <View style={styles.budgetBar}>
+            <View
+              style={[
+                styles.budgetFill,
+                {
+                  width: `${Math.min(stats.budgetUtilization, 100)}%`,
+                  backgroundColor:
+                    stats.budgetUtilization > 100
+                      ? colors.danger
+                      : stats.budgetUtilization > 75
+                        ? colors.warning
+                        : colors.success,
+                },
+              ]}
+            />
+          </View>
+
+          <Text style={[styles.budgetLabel, { color: colors.textSecondary }]}>
+            {stats.budgetUtilization > 100
+              ? `Over budget by ${currencySymbol}${(stats.total - 250 * Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) / (1000 * 60 * 60 * 24))).toFixed(0)}`
+              : `Remaining budget: ${currencySymbol}${Math.max(0, 250 * Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime()) / (1000 * 60 * 60 * 24)) - stats.total).toFixed(0)}`}
+          </Text>
+        </Card>
+
+        {/* Smart Insights Section */}
+        <View style={styles.insightsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Smart Insights</Text>
+          </View>
+
+          {stats.insights.map((insight, idx) => (
+            <Card
+              key={idx}
+              style={[
+                styles.insightItemCard,
+                styles.elevation,
+                {
+                  borderLeftWidth: 4,
+                  borderLeftColor:
+                    insight.type === 'warning'
+                      ? colors.warning
+                      : insight.type === 'success'
+                        ? colors.success
+                        : colors.primary,
+                },
+              ]}
+            >
+              <View style={styles.insightItemContent}>
+                <Text style={styles.insightIcon}>{insight.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.insightItemTitle, { color: colors.text }]}>
+                    {insight.title}
+                  </Text>
+                  <Text style={[styles.insightItemDescription, { color: colors.textSecondary }]}>
+                    {insight.description}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          ))}
+        </View>
+
+        {/* Category Trends */}
+        {stats.categories.length > 0 && (
+          <Card style={[styles.trendsCard, styles.elevation]}>
+            <View style={styles.trendsHeader}>
+              <View style={styles.trendsTitleContainer}>
+                <Flame size={18} color={colors.danger} style={{ marginRight: spacing.sm }} />
+                <Text style={[styles.trendsTitle, { color: colors.text }]}>Category Trends</Text>
+              </View>
+            </View>
+
+            <View style={styles.trendsList}>
+              {stats.categories.slice(0, 5).map((cat, idx) => (
+                <View key={idx} style={styles.trendItem}>
+                  <View style={styles.trendLeft}>
+                    <View
+                      style={[
+                        styles.trendDot,
+                        {
+                          backgroundColor: ['#F97316', '#3B82F6', '#EC4899', '#10B981', '#6366F1'][
+                            idx % 5
+                          ],
+                        },
+                      ]}
+                    />
+                    <View>
+                      <Text style={[styles.trendCategory, { color: colors.text }]}>
+                        {cat.category}
+                      </Text>
+                      {cat.trend && cat.trendPercent !== undefined && (
+                        <View style={styles.trendIndicator}>
+                          {cat.trend === 'up' ? (
+                            <ArrowUp size={12} color={colors.danger} />
+                          ) : cat.trend === 'down' ? (
+                            <ArrowDown size={12} color={colors.success} />
+                          ) : null}
+                          <Text
+                            style={[
+                              styles.trendPercent,
+                              {
+                                color:
+                                  cat.trend === 'up'
+                                    ? colors.danger
+                                    : cat.trend === 'down'
+                                      ? colors.success
+                                      : colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {cat.trend === 'neutral'
+                              ? 'Stable'
+                              : `${cat.trendPercent.toFixed(0)}% ${cat.trend === 'up' ? 'higher' : 'lower'}`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={[styles.trendAmount, { color: colors.text }]}>
+                    {currencySymbol}
+                    {cat.amount.toFixed(0)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        )}
+
+        {/* Quick Stats */}
+        <View style={styles.quickStatsGrid}>
+          <Card style={[styles.quickStatCard, styles.elevation]}>
+            <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>
+              Least Spent Day
+            </Text>
+            <Text style={[styles.quickStatValue, { color: colors.success }]}>
+              {currencySymbol}
+              {stats.leastExpensiveDay.amount.toFixed(0)}
+            </Text>
+            <Text style={[styles.quickStatDate, { color: colors.textSecondary }]}>
+              {stats.leastExpensiveDay.day}
+            </Text>
+          </Card>
+
+          <Card style={[styles.quickStatCard, styles.elevation]}>
+            <Text style={[styles.quickStatLabel, { color: colors.textSecondary }]}>Per Item</Text>
+            <Text style={[styles.quickStatValue, { color: colors.primary }]}>
+              {currencySymbol}
+              {expenses.length > 0 ? (stats.total / expenses.length).toFixed(2) : '0.00'}
+            </Text>
+            <Text style={[styles.quickStatDate, { color: colors.textSecondary }]}>Average</Text>
+          </Card>
+        </View>
       </ScrollView>
 
       {/* Period Picker Modal */}
@@ -707,5 +985,157 @@ const styles = StyleSheet.create({
   periodOptionText: {
     ...typography.bodyMedium,
     textAlign: 'center',
+  },
+  // Budget Card Styles
+  budgetCard: {
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  budgetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  budgetTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  budgetTitle: {
+    ...typography.labelLarge,
+    fontWeight: '700',
+  },
+  budgetPercent: {
+    ...typography.h5,
+    fontWeight: '700',
+  },
+  budgetBar: {
+    height: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  budgetFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  budgetLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  // Insights Section Styles
+  insightsSection: {
+    marginBottom: spacing.lg,
+  },
+  sectionHeader: {
+    marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    ...typography.labelLarge,
+    fontWeight: '700',
+  },
+  insightItemCard: {
+    marginBottom: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  insightItemContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  insightIcon: {
+    fontSize: 20,
+    marginTop: spacing.xs,
+  },
+  insightItemTitle: {
+    ...typography.labelMedium,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  insightItemDescription: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  // Trends Card Styles
+  trendsCard: {
+    marginBottom: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  trendsHeader: {
+    marginBottom: spacing.lg,
+  },
+  trendsTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trendsTitle: {
+    ...typography.labelLarge,
+    fontWeight: '700',
+  },
+  trendsList: {
+    gap: spacing.md,
+  },
+  trendItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  trendLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  trendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  trendCategory: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  trendIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  trendPercent: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  trendAmount: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  // Quick Stats Grid
+  quickStatsGrid: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  quickStatCard: {
+    flex: 1,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  quickStatLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  quickStatValue: {
+    ...typography.h5,
+    fontWeight: '700',
+    marginBottom: spacing.xs,
+  },
+  quickStatDate: {
+    fontSize: 11,
   },
 });

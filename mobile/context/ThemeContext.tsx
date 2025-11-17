@@ -16,6 +16,8 @@ interface ThemeContextType {
   currencySymbol: string;
   setCurrency: (code: string) => Promise<void>;
   availableCurrencies: Array<{ code: string; name: string; symbol?: string }>;
+  dailyBudget: number;
+  setDailyBudget: (budget: number) => Promise<void>;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -31,6 +33,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [availableCurrencies, setAvailableCurrencies] = useState<
     Array<{ code: string; name: string; symbol?: string }>
   >([]);
+
+  // daily budget state (default: 250)
+  const [dailyBudget, setDailyBudgetState] = useState<number>(250);
 
   // Load saved preferences on mount
   useEffect(() => {
@@ -51,6 +56,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
           setCurrencyCode(DEFAULT_CURRENCY_CODE);
           setCurrencySymbol(getSymbolForCurrency(DEFAULT_CURRENCY_CODE));
         }
+
+        const savedDailyBudget = await AsyncStorage.getItem('dailyBudget');
+        if (savedDailyBudget) {
+          setDailyBudgetState(parseFloat(savedDailyBudget));
+        }
+
         try {
           // load full list from package (sync) or fallback
           const list = getAllCurrencies();
@@ -88,6 +99,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setDailyBudget = async (budget: number) => {
+    try {
+      setDailyBudgetState(budget);
+      await AsyncStorage.setItem('dailyBudget', budget.toString());
+    } catch (error) {
+      console.error('Error saving daily budget:', error);
+    }
+  };
+
   if (!isLoaded) {
     return null; // Or return a loading screen
   }
@@ -102,6 +122,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         currencySymbol,
         setCurrency,
         availableCurrencies: availableCurrencies,
+        dailyBudget,
+        setDailyBudget,
       }}
     >
       {children}
