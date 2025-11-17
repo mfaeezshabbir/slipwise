@@ -6,15 +6,25 @@ import { StyleSheet } from 'react-native';
 import Colors from '@/constants/Colors';
 import { Header } from '@/components/Header';
 import { ExpenseForm, type ExpenseFormData } from '@/components/ExpenseForm';
+import { IncomeForm, type IncomeFormData } from '@/components/IncomeForm';
 import { useColorScheme } from '@/components/useColorScheme';
 
-export default function AddExpenseScreen() {
+type TransactionType = 'income' | 'expense';
+
+export default function AddTransactionScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const [loading, setLoading] = useState(false);
-  const [initialData, setInitialData] = useState<ExpenseFormData | undefined>();
+  const [transactionType, setTransactionType] = useState<TransactionType>('expense');
+  const [initialData, setInitialData] = useState<ExpenseFormData | IncomeFormData | undefined>();
+
+  // Determine transaction type from params or default to expense
+  useEffect(() => {
+    const type = (params.type as string) || 'expense';
+    setTransactionType((type === 'income' ? 'income' : 'expense') as TransactionType);
+  }, [params.type]);
 
   // Parse OCR data from route params if available
   useEffect(() => {
@@ -29,7 +39,7 @@ export default function AddExpenseScreen() {
     }
   }, [params.title, params.amount, params.note, params.date, params.categoryId]);
 
-  const handleSubmit = async (data: ExpenseFormData) => {
+  const handleSubmit = async (data: ExpenseFormData | IncomeFormData) => {
     try {
       setLoading(true);
 
@@ -39,6 +49,7 @@ export default function AddExpenseScreen() {
         date: data.date,
         note: data.note || undefined,
         categoryId: data.categoryId,
+        type: transactionType,
       });
 
       // Success - navigate back to home
@@ -56,24 +67,37 @@ export default function AddExpenseScreen() {
     router.push('/ocr');
   };
 
+  const isIncome = transactionType === 'income';
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header
-        title="Add Expense"
-        subtitle="Create a new expense record"
+        title={isIncome ? 'Add Income' : 'Add Expense'}
+        subtitle={isIncome ? 'Record a new income source' : 'Create a new expense record'}
         showBackButton
         onBackPress={handleCancel}
       />
 
-      <ExpenseForm
-        mode="add"
-        initialData={initialData}
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-        isLoading={loading}
-        submitButtonText="Save"
-        onOCR={handleOCR}
-      />
+      {isIncome ? (
+        <IncomeForm
+          mode="add"
+          initialData={initialData as IncomeFormData}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          isLoading={loading}
+          submitButtonText="Save"
+        />
+      ) : (
+        <ExpenseForm
+          mode="add"
+          initialData={initialData as ExpenseFormData}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          isLoading={loading}
+          submitButtonText="Save"
+          onOCR={handleOCR}
+        />
+      )}
     </View>
   );
 }

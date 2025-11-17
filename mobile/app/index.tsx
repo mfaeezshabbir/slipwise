@@ -127,7 +127,7 @@ export default function DashboardScreen() {
       {/* Quick Action Buttons */}
       <View style={styles.quickActionsContainer}>
         <Pressable
-          onPress={() => router.push('/add' as any)}
+          onPress={() => router.push('/add?type=expense' as any)}
           style={({ pressed }) => [
             styles.quickActionButton,
             {
@@ -141,7 +141,7 @@ export default function DashboardScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/add' as any)}
+          onPress={() => router.push('/add?type=income' as any)}
           style={({ pressed }) => [
             styles.quickActionButton,
             {
