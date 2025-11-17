@@ -7,6 +7,7 @@ import { Header } from '@/components/Header';
 import Colors, { spacing } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getAllExpenses, type Expense } from '@/services/expense';
+import { getAllIncomes, type Income } from '@/services/income';
 import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/Button';
 
@@ -18,6 +19,7 @@ export default function History() {
   const { currencySymbol } = useTheme();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,8 +27,9 @@ export default function History() {
     try {
       setError(null);
       setLoading(true);
-      const data = await getAllExpenses();
-      setExpenses(data);
+      const [expenseData, incomeData] = await Promise.all([getAllExpenses(), getAllIncomes()]);
+      setExpenses(expenseData);
+      setIncomes(incomeData);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to load expenses';
       console.error('History load error:', err);
@@ -60,6 +63,45 @@ export default function History() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Header title="History" />
+
+      {/* Dashboard Summary */}
+      <View
+        style={[
+          styles.dashboardCard,
+          { backgroundColor: colors.cardBackground, borderColor: colors.border },
+        ]}
+      >
+        <View style={styles.dashboardRow}>
+          <View style={styles.dashboardCol}>
+            <Text style={[styles.dashboardLabel, { color: colors.textSecondary }]}>
+              Total income
+            </Text>
+            <Text style={[styles.dashboardValue, { color: colors.success }]}>
+              {currencySymbol}
+              {incomes.reduce((s, i) => s + Number(i.amount), 0).toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.dashboardCol}>
+            <Text style={[styles.dashboardLabel, { color: colors.textSecondary }]}>
+              Total expense
+            </Text>
+            <Text style={[styles.dashboardValue, { color: colors.danger }]}>
+              {currencySymbol}
+              {expenses.reduce((s, e) => s + Number(e.amount), 0).toFixed(2)}
+            </Text>
+          </View>
+          <View style={styles.dashboardCol}>
+            <Text style={[styles.dashboardLabel, { color: colors.textSecondary }]}>Balance</Text>
+            <Text style={[styles.dashboardValue, { color: colors.text }]}>
+              {currencySymbol}
+              {(
+                incomes.reduce((s, i) => s + Number(i.amount), 0) -
+                expenses.reduce((s, e) => s + Number(e.amount), 0)
+              ).toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      </View>
 
       {error && (
         <View style={[styles.errorContainer, { backgroundColor: colors.backgroundSecondary }]}>
@@ -195,5 +237,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontStyle: 'italic',
     marginTop: spacing.xs,
+  },
+  dashboardCard: {
+    margin: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  dashboardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dashboardCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  dashboardLabel: {
+    fontSize: 12,
+    marginBottom: spacing.xs,
+  },
+  dashboardValue: {
+    fontSize: 20,
+    fontWeight: '700',
   },
 });
