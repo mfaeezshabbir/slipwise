@@ -153,7 +153,7 @@ export default function DashboardScreen() {
           <ArrowUpRight size={20} color="#fff" />
           <Text style={styles.quickActionText}>Income</Text>
         </Pressable>
-
+        {/* 
         <Pressable
           style={({ pressed }) => [
             styles.quickActionButton,
@@ -167,7 +167,7 @@ export default function DashboardScreen() {
         >
           <MoreHorizontal size={20} color={colors.text} />
           <Text style={[styles.quickActionText, { color: colors.text }]}>More</Text>
-        </Pressable>
+        </Pressable> */}
       </View>
 
       {/* Error Message */}
