@@ -16,7 +16,9 @@ export default function ExpenseItem({ expense }: { expense: Expense }) {
   const { currencySymbol } = useTheme();
 
   const handlePress = () => {
-    router.push(`/expense-${expense.id}` as any);
+    // Navigate to /expense/{id} which maps to the file structure
+    // app/expense/[id].tsx
+    router.push(`/expense/${expense.id}` as any);
   };
 
   // Determine category color based on category or note
