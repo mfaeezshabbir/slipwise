@@ -67,7 +67,7 @@ export default function BottomBar() {
         </Pressable>
 
         <Pressable
-          onPress={() => router.push('/expenses')}
+          onPress={() => router.push('/history')}
           style={({ pressed }) => [styles.iconButton, { opacity: pressed ? 0.75 : 1 }]}
         >
           <BanknoteArrowDown size={22} color={colors.tabIconDefault} />
