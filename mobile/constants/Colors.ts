@@ -4,7 +4,7 @@
 // Brand Colors
 const BRAND_PRIMARY = '#6366F1'; // Indigo - modern, professional
 const BRAND_PRIMARY_DARK = '#4F46E5'; // Darker indigo for interactions
-const BRAND_SECONDARY = '#5b06a0ff'; // Pink - for accents
+const BRAND_SECONDARY = '#b459ffff'; // Pink - for accents
 const BRAND_SUCCESS = '#10B981'; // Emerald - for positive values
 const BRAND_WARNING = '#F59E0B'; // Amber - for warnings
 const BRAND_DANGER = '#EF4444'; // Red - for delete/errors
@@ -20,7 +20,7 @@ const LIGHT_BORDER = '#E5E7EB';
 const LIGHT_BORDER_STRONG = '#D1D5DB';
 
 // Neutral Colors - Dark Mode
-const DARK_BG_PRIMARY = '#0F172A';
+const DARK_BG_PRIMARY = '#1d1d1d';
 const DARK_BG_SECONDARY = '#1E293B';
 const DARK_BG_TERTIARY = '#334155';
 const DARK_TEXT_PRIMARY = '#F1F5F9';
