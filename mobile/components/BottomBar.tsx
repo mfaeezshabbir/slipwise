@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   bar: {
     width: '92%',
     height: 64,
-    borderRadius: borderRadius.full,
+    borderRadius: borderRadius.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
