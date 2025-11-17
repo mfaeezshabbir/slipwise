@@ -24,7 +24,7 @@ export default function BottomBar() {
   const fabShadow = shadows[colorScheme === 'dark' ? 'dark' : 'light'].medium;
 
   // Hide rules: change these segment keys to match routes where bottom bar should be hidden
-  const HIDE_ON_SEGMENTS = ['add', 'ocr', 'onboarding', 'login'];
+  const HIDE_ON_SEGMENTS = ['add', 'ocr', 'expense', 'onboarding', 'login'];
 
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
