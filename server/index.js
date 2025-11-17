@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 const expensesRouter = require('./routes/expenses');
+const incomesRouter = require('./routes/incomes');
 const ocrRouter = require('./routes/ocr');
 const categoriesRouter = require('./routes/categories');
 
@@ -17,6 +18,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/expenses', expensesRouter);
+app.use('/incomes', incomesRouter);
 app.use('/ocr', ocrRouter);
 app.use('/categories', categoriesRouter);
 

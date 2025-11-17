@@ -1,44 +1,37 @@
 const express = require('express');
-const controller = require('../controllers/expensesController');
+const controller = require('../controllers/incomesController');
 
 const router = express.Router();
 
-// List all expenses
+// List all incomes
 router.get('/', async (req, res) => {
-  const rows = await controller.listExpenses();
+  const rows = await controller.listIncomes();
   res.json(rows);
 });
 
-// Get one expense
+// Get one income
 router.get('/:id', async (req, res) => {
   const id = req.params.id;
-  const row = await controller.getExpense(id);
-  if (!row) return res.status(404).json({ error: 'Expense not found' });
+  const row = await controller.getIncome(id);
+  if (!row) return res.status(404).json({ error: 'Income not found' });
   res.json(row);
 });
 
-// Create an expense
+// Create an income
 router.post('/', async (req, res) => {
   const { title, amount, date, note, categoryId, account } = req.body;
   if (!title || amount == null || !date) {
     return res.status(400).json({ error: 'title, amount and date are required' });
   }
-  const created = await controller.createExpense({
-    title,
-    amount,
-    date,
-    note,
-    categoryId,
-    account,
-  });
+  const created = await controller.createIncome({ title, amount, date, note, categoryId, account });
   res.status(201).json(created);
 });
 
-// Update an expense
+// Update an income
 router.put('/:id', async (req, res) => {
   const id = req.params.id;
   const { title, amount, date, note, categoryId, account } = req.body;
-  const updated = await controller.updateExpense(id, {
+  const updated = await controller.updateIncome(id, {
     title,
     amount,
     date,
@@ -46,15 +39,15 @@ router.put('/:id', async (req, res) => {
     categoryId,
     account,
   });
-  if (!updated) return res.status(404).json({ error: 'Expense not found' });
+  if (!updated) return res.status(404).json({ error: 'Income not found' });
   res.json(updated);
 });
 
-// Delete an expense
+// Delete an income
 router.delete('/:id', async (req, res) => {
   const id = req.params.id;
-  const ok = await controller.deleteExpense(id);
-  if (!ok) return res.status(404).json({ error: 'Expense not found' });
+  const ok = await controller.deleteIncome(id);
+  if (!ok) return res.status(404).json({ error: 'Income not found' });
   res.status(204).end();
 });
 

@@ -1,19 +1,18 @@
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 
-export type Expense = {
+export type Income = {
   id: string;
   title: string;
   amount: number;
   date: string; // ISO datetime
   note?: string;
-  account?: string; // Account/wallet identifier
+  account?: string;
   category?: { id: string; name: string };
   createdAt?: string;
   updatedAt?: string;
 };
 
-export type CreateExpenseInput = {
+export type CreateIncomeInput = {
   title: string;
   amount: number;
   date: string;
@@ -22,7 +21,7 @@ export type CreateExpenseInput = {
   categoryId?: string;
 };
 
-export type UpdateExpenseInput = Partial<CreateExpenseInput>;
+export type UpdateIncomeInput = Partial<CreateIncomeInput>;
 
 const BASE_URL = Constants.expoConfig?.extra?.apiUrl || process.env.API_URL;
 
@@ -47,36 +46,36 @@ async function fetchJson(path: string, opts: any = {}) {
     return res.status === 204 ? null : JSON.parse(text);
   } catch (err: any) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to fetch expenses`);
+    throw new Error(`Failed to fetch incomes`);
   }
 }
 
-export async function getAllExpenses(): Promise<Expense[]> {
-  const data = await fetchJson('/expenses');
-  return (Array.isArray(data) ? data : []) as Expense[];
+export async function getAllIncomes(): Promise<Income[]> {
+  const data = await fetchJson('/incomes');
+  return (Array.isArray(data) ? data : []) as Income[];
 }
 
-export async function getExpenseById(id: string): Promise<Expense> {
-  const data = await fetchJson(`/expenses/${id}`);
-  return data as Expense;
+export async function getIncomeById(id: string): Promise<Income> {
+  const data = await fetchJson(`/incomes/${id}`);
+  return data as Income;
 }
 
-export async function createExpense(input: CreateExpenseInput): Promise<Expense> {
-  const created = await fetchJson('/expenses', {
+export async function createIncome(input: CreateIncomeInput): Promise<Income> {
+  const created = await fetchJson('/incomes', {
     method: 'POST',
     body: JSON.stringify(input),
   });
-  return created as Expense;
+  return created as Income;
 }
 
-export async function updateExpense(id: string, input: UpdateExpenseInput): Promise<Expense> {
-  const updated = await fetchJson(`/expenses/${id}`, {
+export async function updateIncome(id: string, input: UpdateIncomeInput): Promise<Income> {
+  const updated = await fetchJson(`/incomes/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   });
-  return updated as Expense;
+  return updated as Income;
 }
 
-export async function deleteExpense(id: string): Promise<void> {
-  await fetchJson(`/expenses/${id}`, { method: 'DELETE' });
+export async function deleteIncome(id: string): Promise<void> {
+  await fetchJson(`/incomes/${id}`, { method: 'DELETE' });
 }

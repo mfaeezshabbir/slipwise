@@ -14,26 +14,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Expense model for Slipwise
+// Expense model for tracking spending
 model Expense {
   id        String   @id @map("_id") @default(auto()) @db.ObjectId
   title     String
   amount    Float
   date      DateTime
   note      String?
-  type      String   @default("expense") // "income" or "expense"
   account   String   @default("default") // Account/wallet identifier
   categoryId String? @db.ObjectId
-  category   Category? @relation(fields: [categoryId], references: [id])
+  category   Category? @relation("ExpenseCategory", fields: [categoryId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime?
+}
+
+// Income model for tracking earnings
+model Income {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  title     String
+  amount    Float
+  date      DateTime
+  note      String?
+  account   String   @default("default") // Account/wallet identifier
+  categoryId String? @db.ObjectId
+  category   Category? @relation("IncomeCategory", fields: [categoryId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime?
 }
 
 model Category {
   id        String   @id @map("_id") @default(auto()) @db.ObjectId
-  name      String   @unique
+  name      String
   type      String   @default("expense") // "income" or "expense"
   createdAt DateTime @default(now())
 
-  expenses  Expense[]
+  expenses  Expense[] @relation("ExpenseCategory")
+  incomes   Income[]  @relation("IncomeCategory")
 }

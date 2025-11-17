@@ -13,6 +13,7 @@ import { Header } from '@/components/Header';
 import Colors, { spacing, typography } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getAllExpenses, type Expense } from '@/services/expense';
+import { getAllIncomes, type Income } from '@/services/income';
 import { useTheme } from '@/context/ThemeContext';
 import { Card } from '@/components/Card';
 import { BarChart } from 'react-native-chart-kit';
@@ -88,6 +89,7 @@ export default function Analytics() {
   const screenWidth = Dimensions.get('window').width - spacing.lg * 2;
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<PeriodType>('week');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
@@ -147,47 +149,62 @@ export default function Analytics() {
   const processExpenses = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getAllExpenses();
-      setExpenses(data);
+      const [expenseData, incomeData] = await Promise.all([getAllExpenses(), getAllIncomes()]);
+      setExpenses(expenseData);
+      setIncomes(incomeData);
 
       const { start, end, prevStart, prevEnd } = getPeriodDates(period);
 
+      // Combine expenses and incomes
+      let allTransactions: Array<{ isIncome: boolean; date: string; amount: number }> = [];
+
+      // Add expenses
+      allTransactions = allTransactions.concat(
+        expenseData.map((e) => ({ isIncome: false, date: e.date, amount: e.amount }))
+      );
+
+      // Add incomes
+      allTransactions = allTransactions.concat(
+        incomeData.map((i) => ({ isIncome: true, date: i.date, amount: i.amount }))
+      );
+
       // Filter by transaction type
-      let filteredData = data;
+      let filteredData = allTransactions;
       if (transactionType === 'income') {
-        filteredData = data.filter((e) => (e.type || 'expense') === 'income');
+        filteredData = allTransactions.filter((t) => t.isIncome);
       } else if (transactionType === 'expense') {
-        filteredData = data.filter((e) => (e.type || 'expense') === 'expense');
+        filteredData = allTransactions.filter((t) => !t.isIncome);
       }
 
       // Current period
-      const currentExpenses = filteredData.filter((e) => {
-        const d = new Date(e.date);
+      const currentTransactions = filteredData.filter((t) => {
+        const d = new Date(t.date);
         return d >= start && d <= end;
       });
 
       // Previous period
-      const previousExpenses = filteredData.filter((e) => {
-        const d = new Date(e.date);
+      const previousTransactions = filteredData.filter((t) => {
+        const d = new Date(t.date);
         return d >= prevStart && d <= prevEnd;
       });
 
-      // Calculate totals for income and expenses separately
-      const allCurrentExpenses = data.filter((e) => {
-        const d = new Date(e.date);
-        return d >= start && d <= end;
-      });
+      // Calculate totals
+      const incomeTotal = currentTransactions
+        .filter((t) => t.isIncome)
+        .reduce((sum: number, t) => sum + Number(t.amount), 0);
 
-      const incomeTotal = allCurrentExpenses
-        .filter((e) => (e.type || 'expense') === 'income')
-        .reduce((sum, e) => sum + Number(e.amount), 0);
+      const expenseTotal = currentTransactions
+        .filter((t) => !t.isIncome)
+        .reduce((sum: number, t) => sum + Number(t.amount), 0);
 
-      const expenseTotal = allCurrentExpenses
-        .filter((e) => (e.type || 'expense') === 'expense')
-        .reduce((sum, e) => sum + Number(e.amount), 0);
-
-      const currentTotal = currentExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
-      const previousTotal = previousExpenses.reduce((sum, e) => sum + Number(e.amount), 0);
+      const currentTotal = currentTransactions.reduce(
+        (sum: number, t) => sum + Number(t.amount),
+        0
+      );
+      const previousTotal = previousTransactions.reduce(
+        (sum: number, t) => sum + Number(t.amount),
+        0
+      );
       const changePercent =
         previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : 0;
 
@@ -195,28 +212,28 @@ export default function Analytics() {
       const dayMap = new Map<string, { name: string; amount: number; fullDay: string }>();
       const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-      currentExpenses.forEach((expense) => {
-        const expenseDate = new Date(expense.date);
+      currentTransactions.forEach((transaction) => {
+        const transDate = new Date(transaction.date);
         if (period === 'week') {
-          const dayOfWeek = daysOfWeek[expenseDate.getDay()];
-          const fullDay = expenseDate.toLocaleDateString('en-US', {
+          const dayOfWeek = daysOfWeek[transDate.getDay()];
+          const fullDay = transDate.toLocaleDateString('en-US', {
             weekday: 'long',
             month: 'short',
             day: 'numeric',
           });
           dayMap.set(dayOfWeek, {
             name: dayOfWeek,
-            amount: (dayMap.get(dayOfWeek)?.amount || 0) + Number(expense.amount),
+            amount: (dayMap.get(dayOfWeek)?.amount || 0) + Number(transaction.amount),
             fullDay,
           });
         } else {
-          const dateStr = expenseDate.toLocaleDateString('en-US', {
+          const dateStr = transDate.toLocaleDateString('en-US', {
             month: 'short',
             day: 'numeric',
           });
           dayMap.set(dateStr, {
             name: dateStr,
-            amount: (dayMap.get(dateStr)?.amount || 0) + Number(expense.amount),
+            amount: (dayMap.get(dateStr)?.amount || 0) + Number(transaction.amount),
             fullDay: dateStr,
           });
         }
@@ -252,14 +269,21 @@ export default function Analytics() {
       const categoryMap = new Map<string, number>();
       const categoryMapPrev = new Map<string, number>();
 
-      currentExpenses.forEach((e) => {
-        const cat = (e as any).category?.name || 'Other';
-        categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(e.amount));
+      // For now, just use expense categories
+      expenseData.forEach((e) => {
+        const d = new Date(e.date);
+        if (d >= start && d <= end) {
+          const cat = e.category?.name || 'Other';
+          categoryMap.set(cat, (categoryMap.get(cat) || 0) + Number(e.amount));
+        }
       });
 
-      previousExpenses.forEach((e) => {
-        const cat = (e as any).category?.name || 'Other';
-        categoryMapPrev.set(cat, (categoryMapPrev.get(cat) || 0) + Number(e.amount));
+      expenseData.forEach((e) => {
+        const d = new Date(e.date);
+        if (d >= prevStart && d <= prevEnd) {
+          const cat = e.category?.name || 'Other';
+          categoryMapPrev.set(cat, (categoryMapPrev.get(cat) || 0) + Number(e.amount));
+        }
       });
 
       const categories: CategoryBreakdown[] = Array.from(categoryMap.entries())

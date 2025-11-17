@@ -1,6 +1,7 @@
 import ExpenseItem from '@/components/ExpenseItem';
 import { Text, View } from '@/components/Themed';
 import { getAllExpenses, type Expense } from '@/services/expense';
+import { getAllIncomes, type Income } from '@/services/income';
 import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -27,17 +28,19 @@ export default function DashboardScreen() {
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const { currencySymbol } = useTheme();
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadExpenses = useCallback(async () => {
+  const loadTransactions = useCallback(async () => {
     try {
       setError(null);
-      const data = await getAllExpenses();
-      setExpenses(data);
+      const [expenseData, incomeData] = await Promise.all([getAllExpenses(), getAllIncomes()]);
+      setExpenses(expenseData);
+      setIncomes(incomeData);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to load expenses';
+      const msg = err instanceof Error ? err.message : 'Failed to load transactions';
       console.error('Dashboard load error:', err);
       setError(msg);
     } finally {
@@ -49,15 +52,15 @@ export default function DashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       if (loading) {
-        loadExpenses();
+        loadTransactions();
       }
-    }, [loading, loadExpenses])
+    }, [loading, loadTransactions])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    loadExpenses();
-  }, [loadExpenses]);
+    loadTransactions();
+  }, [loadTransactions]);
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   const averageExpense = expenses.length > 0 ? total / expenses.length : 0;
@@ -178,7 +181,7 @@ export default function DashboardScreen() {
             <Button
               size="sm"
               variant="outline"
-              onPress={loadExpenses}
+              onPress={loadTransactions}
               style={{ marginTop: spacing.md }}
             >
               Retry

@@ -7,15 +7,29 @@ import { Header } from '@/components/Header';
 import Colors, { spacing } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { getAllExpenses, type Expense } from '@/services/expense';
+import { getAllIncomes, type Income } from '@/services/income';
 import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/Button';
 
 type TransactionType = 'all' | 'income' | 'expense';
 type PeriodType = 'daily' | 'weekly' | 'monthly' | 'all';
 
+interface Transaction {
+  id: string;
+  title: string;
+  amount: number;
+  date: string;
+  note?: string;
+  category?: { id: string; name: string };
+  isIncome: boolean; // true for income, false for expense
+  account?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 interface GroupedTransaction {
   date: string;
-  transactions: Expense[];
+  transactions: Transaction[];
 }
 
 function getWeekNumber(date: Date): number {
@@ -53,19 +67,21 @@ export default function History() {
   const { currencySymbol } = useTheme();
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [transactionType, setTransactionType] = useState<TransactionType>('all');
   const [period, setPeriod] = useState<PeriodType>('all');
 
-  const loadExpenses = useCallback(async () => {
+  const loadTransactions = useCallback(async () => {
     try {
       setError(null);
       setLoading(true);
-      const data = await getAllExpenses();
-      setExpenses(data);
+      const [expenseData, incomeData] = await Promise.all([getAllExpenses(), getAllIncomes()]);
+      setExpenses(expenseData);
+      setIncomes(incomeData);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to load expenses';
+      const msg = err instanceof Error ? err.message : 'Failed to load transactions';
       console.error('History load error:', err);
       setError(msg);
     } finally {
@@ -75,20 +91,50 @@ export default function History() {
 
   useFocusEffect(
     useCallback(() => {
-      loadExpenses();
-    }, [loadExpenses])
+      loadTransactions();
+    }, [loadTransactions])
   );
 
-  // Filter transactions by type
+  // Combine and filter transactions by type
   const filteredTransactions = useMemo(() => {
-    let filtered = expenses;
-    if (transactionType === 'income') {
-      filtered = filtered.filter((e) => e.type === 'income');
-    } else if (transactionType === 'expense') {
-      filtered = filtered.filter((e) => e.type !== 'income');
+    let combined: Transaction[] = [];
+
+    if (transactionType !== 'income') {
+      combined = combined.concat(
+        expenses.map((e) => ({
+          id: e.id,
+          title: e.title,
+          amount: e.amount,
+          date: e.date,
+          note: e.note,
+          category: e.category,
+          isIncome: false,
+          account: e.account,
+          createdAt: e.createdAt,
+          updatedAt: e.updatedAt,
+        }))
+      );
     }
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [expenses, transactionType]);
+
+    if (transactionType !== 'expense') {
+      combined = combined.concat(
+        incomes.map((i) => ({
+          id: i.id,
+          title: i.title,
+          amount: i.amount,
+          date: i.date,
+          note: i.note,
+          category: i.category,
+          isIncome: true,
+          account: i.account,
+          createdAt: i.createdAt,
+          updatedAt: i.updatedAt,
+        }))
+      );
+    }
+
+    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [expenses, incomes, transactionType]);
 
   // Group transactions by period
   const groupedTransactions = useMemo(() => {
@@ -267,7 +313,7 @@ export default function History() {
           <Button
             size="sm"
             variant="outline"
-            onPress={loadExpenses}
+            onPress={loadTransactions}
             style={{ marginTop: spacing.md }}
           >
             Retry
@@ -319,11 +365,11 @@ export default function History() {
                       style={[
                         styles.itemAmount,
                         {
-                          color: transaction.type === 'income' ? colors.success : colors.danger,
+                          color: transaction.isIncome ? colors.success : colors.danger,
                         },
                       ]}
                     >
-                      {transaction.type === 'income' ? '+' : '-'}
+                      {transaction.isIncome ? '+' : '-'}
                       {currencySymbol}
                       {Number(transaction.amount).toFixed(2)}
                     </Text>

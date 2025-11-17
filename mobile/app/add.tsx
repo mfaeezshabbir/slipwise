@@ -1,5 +1,6 @@
 import { View } from '@/components/Themed';
 import { createExpense } from '@/services/expense';
+import { createIncome } from '@/services/income';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { StyleSheet } from 'react-native';
@@ -43,14 +44,23 @@ export default function AddTransactionScreen() {
     try {
       setLoading(true);
 
-      await createExpense({
-        title: data.title,
-        amount: parseFloat(data.amount),
-        date: data.date,
-        note: data.note || undefined,
-        categoryId: data.categoryId,
-        type: transactionType,
-      });
+      if (transactionType === 'income') {
+        await createIncome({
+          title: data.title,
+          amount: parseFloat(data.amount),
+          date: data.date,
+          note: data.note || undefined,
+          categoryId: data.categoryId,
+        });
+      } else {
+        await createExpense({
+          title: data.title,
+          amount: parseFloat(data.amount),
+          date: data.date,
+          note: data.note || undefined,
+          categoryId: data.categoryId,
+        });
+      }
 
       // Success - navigate back to home
       router.replace('/');
