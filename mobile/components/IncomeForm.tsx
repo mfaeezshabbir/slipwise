@@ -1,25 +1,23 @@
 import { View, Text } from '@/components/Themed';
 import {
   StyleSheet,
-  FlatList,
+  ScrollView,
   Pressable,
   View as RNView,
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Keyboard,
   Modal,
+  TextInput as RNTextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import Colors, { spacing, typography, borderRadius } from '@/constants/Colors';
 import { getCategories, createCategory } from '@/services/category';
-import { TextInput } from '@/components/TextInput';
 import { Button } from '@/components/Button';
-import { Card } from '@/components/Card';
 import { useColorScheme } from '@/components/useColorScheme';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { Search, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, Paperclip } from 'lucide-react-native';
 
 interface FormErrors {
   title?: string;
@@ -54,7 +52,6 @@ export const IncomeForm = ({
 }: IncomeFormProps) => {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
-  const flatListRef = useRef<FlatList>(null);
 
   // Form state
   const [title, setTitle] = useState(initialData?.title || '');
@@ -70,7 +67,6 @@ export const IncomeForm = ({
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [categorySearchText, setCategorySearchText] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Fetch categories on mount
   useEffect(() => {
@@ -85,21 +81,6 @@ export const IncomeForm = ({
     })();
     return () => {
       mounted = false;
-    };
-  }, []);
-
-  // Keyboard visibility listener
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setIsKeyboardVisible(true);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setIsKeyboardVisible(false);
-    });
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
     };
   }, []);
 
@@ -118,7 +99,6 @@ export const IncomeForm = ({
   useEffect(() => {
     if (!initialData) return;
 
-    // Populate fields from initialData. Overwrite current values so OCR fills the form.
     setTitle(initialData.title || '');
     setAmount(initialData.amount || '');
     setDate(initialData.date || new Date().toISOString().split('T')[0]);
@@ -171,25 +151,20 @@ export const IncomeForm = ({
     }
 
     try {
-      // Ensure category exists (create it if the user typed a new name)
       let payloadCategoryId = categoryId;
       if (!payloadCategoryId && category.trim()) {
-        // Try find by name locally
         const existing = categories.find(
           (c) => c.name.toLowerCase() === category.trim().toLowerCase()
         );
         if (existing) {
           payloadCategoryId = existing.id;
         } else {
-          // Create new income category
           const created = await createCategory(category.trim());
           payloadCategoryId = created.id;
-          // Refresh categories list
           setCategories((prev) => [created, ...prev]);
         }
       }
 
-      // Call parent submit handler
       await onSubmit({
         title: title.trim(),
         amount: parseFloat(amount).toString(),
@@ -204,149 +179,166 @@ export const IncomeForm = ({
     }
   };
 
-  const defaultSubmitText = mode === 'add' ? 'Save' : 'Update';
   const filteredCategories = categories.filter((c) =>
     c.name.toLowerCase().includes(categorySearchText.trim().toLowerCase())
   );
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-    >
-      <FlatList
-        ref={flatListRef}
-        data={[{ key: 'form' }]} // Dummy data to use FlatList
-        keyExtractor={(item) => item.key}
-        scrollEnabled={isKeyboardVisible}
-        contentContainerStyle={styles.flatListContent}
-        renderItem={() => (
-          <Card shadowSize="medium">
-            <View style={styles.formContainer}>
-              {/* Title Section */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  Income Details
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      <KeyboardAvoidingView
+        style={styles.formWrapper}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Amount Section */}
+          <View style={styles.amountSection}>
+            <Text style={[styles.amountLabel, { color: colors.textSecondary }]}>How much?</Text>
+            <Text style={[styles.amountValue, { color: colors.text }]}>${amount || '0'}</Text>
+          </View>
+
+          {/* Form Fields */}
+          <View style={styles.formContent}>
+            {/* Category */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Source</Text>
+              <Pressable
+                onPress={() => setShowCategoryModal(true)}
+                style={[
+                  styles.selectField,
+                  { backgroundColor: colors.backgroundTertiary, borderColor: colors.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.selectFieldText,
+                    {
+                      color: category ? colors.text : colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {category || 'Select source'}
                 </Text>
-                <View style={styles.sectionDivider} />
-
-                {/* Title Input */}
-                <TextInput
-                  label="Title"
-                  placeholder="e.g., Salary, Bonus, Gift"
-                  value={title}
-                  onChangeText={(text) => {
-                    setTitle(text);
-                    if (errors.title) setErrors({ ...errors, title: undefined });
-                  }}
-                  error={errors.title}
-                  editable={!isLoading}
-                />
-
-                {/* Amount & Date Row */}
-                <View style={styles.rowContainer}>
-                  <View style={styles.flex1}>
-                    <TextInput
-                      label="Amount"
-                      placeholder="0.00"
-                      value={amount}
-                      onChangeText={(text) => {
-                        setAmount(text);
-                        if (errors.amount) setErrors({ ...errors, amount: undefined });
-                      }}
-                      keyboardType="decimal-pad"
-                      error={errors.amount}
-                      editable={!isLoading}
-                    />
-                  </View>
-                  <View style={styles.spacer} />
-                  <View style={styles.flex1}>
-                    <Pressable onPress={() => setShowDatePicker(true)}>
-                      <TextInput
-                        label="Date"
-                        placeholder={new Date().toISOString().split('T')[0]}
-                        value={date}
-                        editable={false}
-                        hint="Tap to select a date"
-                      />
-                    </Pressable>
-                    {showDatePicker && (
-                      <DateTimePicker
-                        value={new Date(date || Date.now())}
-                        mode="date"
-                        display="default"
-                        onChange={handleDateChange}
-                      />
-                    )}
-                  </View>
-                </View>
-              </View>
-
-              {/* Category Section */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  Income Source
-                </Text>
-                <View style={styles.sectionDivider} />
-
-                {/* Category Input - Click to open modal */}
-                <Pressable onPress={() => setShowCategoryModal(true)}>
-                  <TextInput
-                    label="Source"
-                    placeholder="e.g. salary, freelance, investment"
-                    value={category}
-                    editable={false}
-                    pointerEvents="none"
-                  />
-                </Pressable>
-              </View>
-
-              {/* Notes Section */}
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  Additional Info
-                </Text>
-                <View style={styles.sectionDivider} />
-
-                <RNView style={styles.noteSection}>
-                  <TextInput
-                    value={note}
-                    onChangeText={(text) => setNote(text)}
-                    placeholder="Add any additional notes..."
-                    multiline
-                    numberOfLines={5}
-                    style={[styles.noteInputWrapper]}
-                    editable={!isLoading}
-                  />
-                </RNView>
-              </View>
+              </Pressable>
             </View>
-          </Card>
-        )}
-      />
 
-      {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        <Button
-          variant="outline"
-          size="md"
-          onPress={onCancel}
-          disabled={isLoading}
-          style={{ flex: 1, marginRight: spacing.md }}
-        >
-          Cancel
-        </Button>
-        <Button
-          size="md"
-          onPress={handleSubmit}
-          disabled={isLoading}
-          loading={isLoading}
-          style={{ flex: 1 }}
-        >
-          {submitButtonText || defaultSubmitText}
-        </Button>
-      </View>
+            {/* Title/Description */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Title</Text>
+              <RNTextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.backgroundTertiary,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="Enter title"
+                placeholderTextColor={colors.textSecondary}
+                value={title}
+                onChangeText={(text: string) => {
+                  setTitle(text);
+                  if (errors.title) setErrors({ ...errors, title: undefined });
+                }}
+                editable={!isLoading}
+              />
+              {errors.title && (
+                <Text style={[styles.errorText, { color: colors.danger }]}>{errors.title}</Text>
+              )}
+            </View>
+
+            {/* Amount */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Amount</Text>
+              <RNTextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.backgroundTertiary,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="decimal-pad"
+                value={amount}
+                onChangeText={(text: string) => {
+                  setAmount(text);
+                  if (errors.amount) setErrors({ ...errors, amount: undefined });
+                }}
+                editable={!isLoading}
+              />
+              {errors.amount && (
+                <Text style={[styles.errorText, { color: colors.danger }]}>{errors.amount}</Text>
+              )}
+            </View>
+
+            {/* Date */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Date</Text>
+              <Pressable
+                onPress={() => setShowDatePicker(true)}
+                style={[
+                  styles.selectField,
+                  { backgroundColor: colors.backgroundTertiary, borderColor: colors.border },
+                ]}
+              >
+                <Text style={[styles.selectFieldText, { color: colors.text }]}>{date}</Text>
+              </Pressable>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={new Date(date || Date.now())}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                />
+              )}
+            </View>
+
+            {/* Notes */}
+            <View style={styles.fieldGroup}>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Notes</Text>
+              <RNTextInput
+                style={[
+                  styles.textInput,
+                  styles.noteInput,
+                  {
+                    backgroundColor: colors.backgroundTertiary,
+                    color: colors.text,
+                    borderColor: colors.border,
+                  },
+                ]}
+                placeholder="Add any notes..."
+                placeholderTextColor={colors.textSecondary}
+                value={note}
+                onChangeText={(text: string) => setNote(text)}
+                multiline
+                numberOfLines={4}
+                editable={!isLoading}
+              />
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Save/Update Button */}
+        <View style={[styles.footer, { borderTopColor: colors.border }]}>
+          <Button
+            size="lg"
+            onPress={handleSubmit}
+            disabled={isLoading}
+            loading={isLoading}
+            style={styles.continueButton}
+          >
+            {submitButtonText || (mode === 'add' ? 'Save' : 'Update')}
+          </Button>
+        </View>
+      </KeyboardAvoidingView>
 
       {/* Category Modal */}
       <Modal
@@ -375,64 +367,72 @@ export const IncomeForm = ({
 
           {/* Search Input */}
           <View style={styles.modalSearchContainer}>
-            <TextInput
+            <RNTextInput
               placeholder="Search or type new source..."
               value={categorySearchText}
-              onChangeText={setCategorySearchText}
+              onChangeText={(text: string) => setCategorySearchText(text)}
               autoFocus
+              style={[
+                styles.searchInput,
+                {
+                  backgroundColor: colors.backgroundTertiary,
+                  color: colors.text,
+                  borderColor: colors.border,
+                },
+              ]}
+              placeholderTextColor={colors.textSecondary}
             />
           </View>
 
           {/* Categories List */}
-          <FlatList
-            data={categorySearchText.trim().length > 0 ? filteredCategories : categories}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => handleCategorySelect(item)}
-                style={({ pressed }) => [
-                  styles.categoryModalItem,
-                  {
-                    backgroundColor: pressed ? colors.backgroundTertiary : colors.background,
-                  },
-                ]}
-              >
-                <Text style={[styles.categoryModalItemText, { color: colors.text }]}>
-                  {item.name}
-                </Text>
-              </Pressable>
-            )}
-            ItemSeparatorComponent={() => (
-              <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            )}
-            ListEmptyComponent={
-              categorySearchText.trim().length > 0 ? (
-                <View style={styles.modalEmpty}>
-                  <Text style={[styles.modalEmptyText, { color: colors.textSecondary }]}>
-                    No sources found
-                  </Text>
+          <ScrollView>
+            {filteredCategories.length > 0 ? (
+              filteredCategories.map((item, index) => (
+                <RNView key={item.id}>
                   <Pressable
-                    onPress={async () => {
-                      try {
-                        const created = await createCategory(categorySearchText.trim());
-                        handleCategorySelect(created);
-                      } catch (err) {
-                        Alert.alert('Error', 'Failed to create income source');
-                      }
-                    }}
-                    style={[styles.createCategoryButton, { borderColor: colors.success }]}
+                    onPress={() => handleCategorySelect(item)}
+                    style={[
+                      styles.categoryItem,
+                      {
+                        backgroundColor: colors.background,
+                      },
+                    ]}
                   >
-                    <Text style={[styles.createCategoryButtonText, { color: colors.success }]}>
-                      Create "{categorySearchText.trim()}"
+                    <Text style={[styles.categoryItemText, { color: colors.text }]}>
+                      {item.name}
                     </Text>
                   </Pressable>
-                </View>
-              ) : null
-            }
-          />
+                  {index < filteredCategories.length - 1 && (
+                    <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                  )}
+                </RNView>
+              ))
+            ) : categorySearchText.trim().length > 0 ? (
+              <View style={styles.modalEmpty}>
+                <Text style={[styles.modalEmptyText, { color: colors.textSecondary }]}>
+                  No sources found
+                </Text>
+                <Pressable
+                  onPress={async () => {
+                    try {
+                      const created = await createCategory(categorySearchText.trim());
+                      handleCategorySelect(created);
+                    } catch (err) {
+                      Alert.alert('Error', 'Failed to create income source');
+                    }
+                  }}
+                  style={[styles.createCategoryButton, { borderColor: colors.success }]}
+                >
+                  <Text style={[styles.createCategoryButtonText, { color: colors.success }]}>
+                    Create "{categorySearchText.trim()}"
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </ScrollView>
         </SafeAreaView>
       </Modal>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -440,53 +440,86 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  flatListContent: {
-    flexGrow: 1,
-    paddingBottom: spacing.xl,
-  },
-  formContainer: {
-    gap: spacing.lg,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    ...typography.labelLarge,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    fontSize: 12,
-  },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-  },
-  flex1: {
+  formWrapper: {
     flex: 1,
   },
-  spacer: {
-    width: spacing.md,
+  scrollView: {
+    flex: 1,
   },
-  divider: {
-    height: 1,
-    marginVertical: 0,
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    // paddingVertical: spacing.lg,
   },
-  noteSection: {
-    marginBottom: spacing.lg,
+  amountSection: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
   },
-  noteInputWrapper: {
-    minHeight: 100,
+  amountLabel: {
+    fontSize: 14,
+    marginBottom: spacing.sm,
+  },
+  amountValue: {
+    fontSize: 48,
+    fontWeight: '700',
+  },
+  formContent: {
+    gap: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  fieldGroup: {
+    gap: spacing.sm,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  textInput: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+    fontSize: 16,
   },
-  buttonContainer: {
+  noteInput: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+    paddingTop: spacing.md,
+  },
+  selectField: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    justifyContent: 'center',
+  },
+  selectFieldText: {
+    fontSize: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    marginTop: spacing.xs,
+  },
+  attachmentButton: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    borderStyle: 'dashed',
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
+  attachmentButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  footer: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+    borderTopWidth: 1,
+  },
+  continueButton: {
+    // marginBottom: spacing.sm,
   },
   modalContainer: {
     flex: 1,
@@ -510,21 +543,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modalTitle: {
-    ...typography.labelLarge,
     fontSize: 18,
     fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
   },
   modalSearchContainer: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  categoryModalItem: {
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    fontSize: 16,
+  },
+  categoryItem: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
   },
-  categoryModalItemText: {
-    ...typography.bodyMedium,
+  categoryItemText: {
     fontSize: 16,
+  },
+  divider: {
+    height: 1,
   },
   modalEmpty: {
     flex: 1,
@@ -532,9 +575,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
     gap: spacing.lg,
+    minHeight: 200,
   },
   modalEmptyText: {
-    ...typography.bodyMedium,
+    fontSize: 16,
   },
   createCategoryButton: {
     paddingHorizontal: spacing.lg,
@@ -543,7 +587,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
   },
   createCategoryButtonText: {
-    ...typography.labelLarge,
+    fontSize: 16,
     textAlign: 'center',
+    fontWeight: '500',
   },
 });
